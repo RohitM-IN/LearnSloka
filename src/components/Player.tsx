@@ -398,7 +398,7 @@ export const Player: React.FC = () => {
               padding: '0 8px',
               lineHeight: '1.3'
             }}>
-              📖 Rudrapath Line-by-Line Player
+              रुद्रपाठ प्रशिक्षणम्
             </Title>
             
             {/* Created By section for mobile */}
@@ -508,7 +508,7 @@ export const Player: React.FC = () => {
                   <div>Rohit Sopan Mahajan</div>
                 </div>
                 <div style={{ flex: 2, textAlign: 'center' }}>
-                  📖 Rudrapath Line-by-Line Player Learning
+                रुद्रपाठ प्रशिक्षणम्
                 </div>
                 <div style={{ flex: 1, textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                   {isPlaying && (
