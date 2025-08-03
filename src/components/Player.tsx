@@ -331,7 +331,6 @@ export const Player: React.FC = () => {
   return (
     <div style={{ 
       width: '99vw', 
-      // height: '100vh',
       padding: '16px',
       boxSizing: 'border-box',
       backgroundColor: '#ffffff'
@@ -360,7 +359,7 @@ export const Player: React.FC = () => {
           <div className="mobile-header" style={{ display: 'none' }}>
             <Title level={1} style={{ 
               textAlign: 'center', 
-              marginBottom: 12, 
+              marginBottom: 8, 
               color: '#1890ff',
               fontSize: 'clamp(18px, 6vw, 24px)',
               fontWeight: 700,
@@ -370,6 +369,32 @@ export const Player: React.FC = () => {
             }}>
               📖 Rudrapath Line-by-Line Player
             </Title>
+            
+            {/* Created By section for mobile */}
+            <div style={{ 
+              textAlign: 'center', 
+              marginBottom: 12,
+              padding: '0 8px'
+            }}>
+              <Text style={{ 
+                fontSize: '12px', 
+                fontWeight: 600, 
+                color: '#d32f2f',
+                display: 'block',
+                lineHeight: '1.2'
+              }}>
+                Created By
+              </Text>
+              <Text style={{ 
+                fontSize: '12px', 
+                fontWeight: 600, 
+                color: '#d32f2f',
+                display: 'block',
+                lineHeight: '1.2'
+              }}>
+                Rohit Sopan Mahajan
+              </Text>
+            </div>
             
             {/* Mobile Status Bar */}
             <div style={{ 
@@ -440,9 +465,19 @@ export const Player: React.FC = () => {
                 width: '100%',
                 minHeight: '48px'
               }}>
-                <div style={{ flex: 1 }}></div>
+                <div style={{ 
+                  flex: 1, 
+                  fontSize: '14px', 
+                  fontWeight: 600, 
+                  color: '#d32f2f',
+                  textAlign: 'left',
+                  lineHeight: '1.3'
+                }}>
+                  <div>Created By</div>
+                  <div>Rohit Sopan Mahajan</div>
+                </div>
                 <div style={{ flex: 2, textAlign: 'center' }}>
-                  📖 Rudrapath Line-by-Line Player
+                  📖 Rudrapath Line-by-Line Player Learning
                 </div>
                 <div style={{ flex: 1, textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                   {isPlaying && (
