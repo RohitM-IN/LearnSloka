@@ -344,45 +344,59 @@ export const Player: React.FC = () => {
         flexDirection: 'column',
         backgroundColor: '#ffffff'
       }}>
-        <Title level={1} style={{ 
-          textAlign: 'center', 
-          marginBottom: 24, 
-          color: '#1890ff',
-          fontSize: 'clamp(24px, 4vw, 32px)',
-          fontWeight: 700,
-          letterSpacing: '1px',
-          padding: '0 16px'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            width: '100%'
-          }}>
-            <div style={{ flex: 1 }}></div>
-            <div style={{ flex: 2, textAlign: 'center' }}>
+        <div style={{ marginBottom: 24 }}>
+          <style>{`
+            @media (max-width: 767px) {
+              .desktop-header { display: none !important; }
+              .mobile-header { display: block !important; }
+            }
+            @media (min-width: 768px) {
+              .mobile-header { display: none !important; }
+              .desktop-header { display: block !important; }
+            }
+          `}</style>
+          
+          {/* Mobile Header - Stacked Layout */}
+          <div className="mobile-header" style={{ display: 'none' }}>
+            <Title level={1} style={{ 
+              textAlign: 'center', 
+              marginBottom: 12, 
+              color: '#1890ff',
+              fontSize: 'clamp(18px, 6vw, 24px)',
+              fontWeight: 700,
+              letterSpacing: '0.5px',
+              padding: '0 8px',
+              lineHeight: '1.3'
+            }}>
               📖 Rudrapath Line-by-Line Player
-            </div>
-            <div style={{ flex: 1, textAlign: 'right' }}>
+            </Title>
+            
+            {/* Mobile Status Bar */}
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              padding: '0 8px'
+            }}>
               {isPlaying && (
                 <div style={{ 
-                  padding: '4px 12px', 
+                  padding: '6px 10px', 
                   backgroundColor: '#f0f8ff', 
                   borderRadius: '6px',
                   border: '2px solid #d6e4ff',
                   textAlign: 'center',
-                  minWidth: '140px',
-                  height: '32px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  flexShrink: 0
                 }}>
-                  <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>
-                    Total: {formatTime(audioTime)}
+                  <Text strong style={{ fontSize: '12px', color: '#1890ff' }}>
+                    {formatTime(audioTime)}
                   </Text>
                   {currentIndex >= 0 && (
-                    <Text type="secondary" style={{ marginLeft: 6, fontSize: '11px' }}>
-                      {currentIndex + 1}/{segments.length}
+                    <Text type="secondary" style={{ marginLeft: 4, fontSize: '10px' }}>
+                      ({currentIndex + 1}/{segments.length})
                     </Text>
                   )}
                 </div>
@@ -392,9 +406,9 @@ export const Player: React.FC = () => {
                   size="small"
                   onClick={clearSavedPosition}
                   style={{ 
-                    fontSize: '10px',
-                    height: '24px',
-                    padding: '0 6px',
+                    fontSize: '9px',
+                    height: '28px',
+                    padding: '0 8px',
                     backgroundColor: '#ff7875',
                     borderColor: '#ff7875',
                     color: 'white',
@@ -402,12 +416,81 @@ export const Player: React.FC = () => {
                     fontWeight: 500
                   }}
                 >
-                  Clear Saved Data
+                  Clear
                 </Button>
               )}
             </div>
           </div>
-        </Title>
+
+          {/* Desktop Header - Horizontal Layout */}
+          <div className="desktop-header" style={{ display: 'none' }}>
+            <Title level={1} style={{ 
+              textAlign: 'center', 
+              marginBottom: 0, 
+              color: '#1890ff',
+              fontSize: 'clamp(24px, 4vw, 32px)',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              padding: '0 16px'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                width: '100%',
+                minHeight: '48px'
+              }}>
+                <div style={{ flex: 1 }}></div>
+                <div style={{ flex: 2, textAlign: 'center' }}>
+                  📖 Rudrapath Line-by-Line Player
+                </div>
+                <div style={{ flex: 1, textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  {isPlaying && (
+                    <div style={{ 
+                      padding: '4px 12px', 
+                      backgroundColor: '#f0f8ff', 
+                      borderRadius: '6px',
+                      border: '2px solid #d6e4ff',
+                      textAlign: 'center',
+                      minWidth: '120px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>
+                        Total: {formatTime(audioTime)}
+                      </Text>
+                      {currentIndex >= 0 && (
+                        <Text type="secondary" style={{ marginLeft: 6, fontSize: '11px' }}>
+                          {currentIndex + 1}/{segments.length}
+                        </Text>
+                      )}
+                    </div>
+                  )}
+                  {hasSavedPosition && !isPlaying && (
+                    <Button 
+                      size="small"
+                      onClick={clearSavedPosition}
+                      style={{ 
+                        fontSize: '10px',
+                        height: '24px',
+                        padding: '0 6px',
+                        backgroundColor: '#ff7875',
+                        borderColor: '#ff7875',
+                        color: 'white',
+                        borderRadius: '4px',
+                        fontWeight: 500
+                      }}
+                    >
+                      Clear Saved Data
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Title>
+          </div>
+        </div>
 
         <Row gutter={[12, 12]} style={{ marginBottom: 20, padding: '0 8px' }}>
           <Col xs={24} sm={24} md={8}>
