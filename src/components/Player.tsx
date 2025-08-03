@@ -22,6 +22,7 @@ export const Player: React.FC = () => {
   const [hasSavedPosition, setHasSavedPosition] = useState<boolean>(false);
   const [hasShownFirstTimePrompt, setHasShownFirstTimePrompt] = useState<boolean>(false);
   const [fontSize, setFontSize] = useState<number>(18);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +42,12 @@ export const Player: React.FC = () => {
     const savedFontSize = localStorage.getItem('rudraPlayer_fontSize');
     if (savedFontSize) {
       setFontSize(parseInt(savedFontSize));
+    }
+
+    // Load saved playback speed
+    const savedSpeed = localStorage.getItem('rudraPlayer_playbackSpeed');
+    if (savedSpeed) {
+      setPlaybackSpeed(parseFloat(savedSpeed));
     }
   }, []);
 
@@ -63,6 +70,14 @@ export const Player: React.FC = () => {
   const handleFontSizeChange = (newSize: number) => {
     setFontSize(newSize);
     localStorage.setItem('rudraPlayer_fontSize', newSize.toString());
+  };
+
+  const handleSpeedChange = (newSpeed: number) => {
+    setPlaybackSpeed(newSpeed);
+    localStorage.setItem('rudraPlayer_playbackSpeed', newSpeed.toString());
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed;
+    }
   };
 
   const handlePlay = (startIndex: number = 0) => {
@@ -196,6 +211,7 @@ export const Player: React.FC = () => {
       
       if (audioRef.current) {
         audioRef.current.currentTime = start;
+        audioRef.current.playbackRate = playbackSpeed;
         audioRef.current.play();
       }
 
@@ -213,6 +229,7 @@ export const Player: React.FC = () => {
               setCurrentRepeat(currentRepeat + 1);
               if (audioRef.current) {
                 audioRef.current.currentTime = start;
+                audioRef.current.playbackRate = playbackSpeed;
                 audioRef.current.play();
               }
             } else if (currentIndex + 1 < segments.length) {
@@ -287,18 +304,6 @@ export const Player: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              {isActive && (
-                <div style={{ marginRight: '12px' }}>
-                  <Progress 
-                    type="circle" 
-                    percent={getCurrentSegmentProgress()} 
-                    size={30}
-                    strokeColor="#1890ff"
-                    format={() => null}
-                    strokeWidth={3}
-                  />
-                </div>
-              )}
               <div style={{ flex: 1 }}>
                 <Text 
                   strong={isActive || isSavedPosition} 
@@ -314,13 +319,6 @@ export const Player: React.FC = () => {
                   {isActive ? "" : isCompleted ? "" : isSavedPosition ? "💾 " : ""}
                   {segment.text}
                 </Text>
-                {isActive && enableRepeat && repeatCount > 1 && (
-                  <div style={{ marginTop: '8px' }}>
-                    <Text type="secondary" style={{ fontSize: '14px', fontWeight: 500 }}>
-                      Repeat {currentRepeat + 1}/{repeatCount}
-                    </Text>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -332,15 +330,14 @@ export const Player: React.FC = () => {
   return (
     <div style={{ 
       width: '99vw', 
+      padding: '16px',
       boxSizing: 'border-box',
       backgroundColor: '#ffffff'
     }}
     className="main-container"
     >
-      <Card style={{ 
+      <div style={{ 
         height: '100%',
-        borderRadius: '16px', 
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#ffffff'
@@ -546,7 +543,7 @@ export const Player: React.FC = () => {
         </div>
 
         <Row gutter={[12, 12]} style={{ marginBottom: 20, padding: '0 8px' }}>
-          <Col xs={24} sm={24} md={8}>
+          <Col xs={24} sm={12} md={6}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -603,7 +600,7 @@ export const Player: React.FC = () => {
             </div>
           </Col>
           
-          <Col xs={24} sm={24} md={8}>
+          <Col xs={24} sm={12} md={6}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -639,7 +636,55 @@ export const Player: React.FC = () => {
             </div>
           </Col>
 
-          <Col xs={24} sm={24} md={8}>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              minHeight: '40px'
+            }}>
+              <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>Speed:</Text>
+              <Button 
+                size="small"
+                onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
+                disabled={playbackSpeed <= 0.25}
+                style={{ 
+                  height: '28px', 
+                  width: '28px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px'
+                }}
+              >
+                -
+              </Button>
+              <Text style={{ fontSize: '12px', minWidth: '40px', textAlign: 'center' }}>
+                {playbackSpeed}x
+              </Text>
+              <Button 
+                size="small"
+                onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
+                disabled={playbackSpeed >= 2}
+                style={{ 
+                  height: '28px', 
+                  width: '28px',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px'
+                }}
+              >
+                +
+              </Button>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={6}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -709,27 +754,27 @@ export const Player: React.FC = () => {
             style={{ margin: 0 }}
           />
         </div>
+      </div>
 
-        <audio
-          ref={audioRef}
-          src="/rudra.mp3"
-          preload="auto"
-          onEnded={handleStop}
-          style={{ display: 'none' }}
-        />
+      <audio
+        ref={audioRef}
+        src="/rudra.mp3"
+        preload="auto"
+        onEnded={handleStop}
+        style={{ display: 'none' }}
+      />
 
-        <Modal
-          title="Continue from where you left off?"
-          open={showContinueModal}
-          onOk={handleContinue}
-          onCancel={handleStartFresh}
-          okText="Continue"
-          cancelText="Start Fresh"
-          centered
-        >
-          <p>We found your last played position. Would you like to continue from where you left off or start fresh?</p>
-        </Modal>
-      </Card>
+      <Modal
+        title="Continue from where you left off?"
+        open={showContinueModal}
+        onOk={handleContinue}
+        onCancel={handleStartFresh}
+        okText="Continue"
+        cancelText="Start Fresh"
+        centered
+      >
+        <p>We found your last played position. Would you like to continue from where you left off or start fresh?</p>
+      </Modal>
     </div>
   );
 };
