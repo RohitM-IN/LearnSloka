@@ -1,6 +1,6 @@
+import { Button, Col, InputNumber, List, Modal, Progress, Row, Switch, Typography, message } from "antd";
 import React, { useEffect, useRef, useState } from "react";
-import { List, Typography, Button, Card, InputNumber, Switch, Row, Col, Progress, Modal, message } from "antd";
-import { FaPlay, FaStop, FaRedo } from "react-icons/fa";
+import { FaPlay, FaRedo, FaStop } from "react-icons/fa";
 import segments from "../data/rudra_segments.json";
 
 const { Text, Title } = Typography;
@@ -319,6 +319,22 @@ export const Player: React.FC = () => {
                   {isActive ? "" : isCompleted ? "" : isSavedPosition ? "💾 " : ""}
                   {segment.text}
                 </Text>
+                
+                {/* Progress bar for active segment */}
+                {isActive && isPlaying && (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: '11px', color: '#666' }}>
+                        {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
+                      </Text>
+                      {enableRepeat && (
+                        <Text style={{ fontSize: '11px', color: '#666' }}>
+                          Repeat: {currentRepeat + 1}/{repeatCount}
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -456,7 +472,7 @@ export const Player: React.FC = () => {
                     fontWeight: 500
                   }}
                 >
-                  Clear
+                  Clear Cache
                 </Button>
               )}
             </div>
@@ -533,7 +549,7 @@ export const Player: React.FC = () => {
                         fontWeight: 500
                       }}
                     >
-                      Clear Saved Data
+                      Clear Cache
                     </Button>
                   )}
                 </div>
@@ -541,6 +557,34 @@ export const Player: React.FC = () => {
             </Title>
           </div>
         </div>
+
+        {/* Overall Progress Bar - shown when playing */}
+        {isPlaying && currentIndex >= 0 && (
+          <div style={{ 
+            marginBottom: 16, 
+            padding: '0 16px',
+            backgroundColor: '#f9f9f9',
+            borderRadius: '8px'
+          }}>
+            <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>
+                Overall Progress
+              </Text>
+              <Text style={{ fontSize: '12px', color: '#666' }}>
+                {currentIndex + 1} of {segments.length} segments
+              </Text>
+            </div>
+            <Progress 
+              percent={Number((((currentIndex + getCurrentSegmentProgress() / 100) / segments.length) * 100).toFixed(2))}
+              strokeColor={{
+                '0%': '#108ee9',
+                '100%': '#87d068',
+              }}
+              trailColor="#e6f7ff"
+              size="default"
+            />
+          </div>
+        )}
 
         <Row gutter={[12, 12]} style={{ marginBottom: 20, padding: '0 8px' }}>
           <Col xs={24} sm={12} md={6}>
