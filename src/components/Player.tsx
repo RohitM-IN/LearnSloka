@@ -260,14 +260,15 @@ export const Player: React.FC = () => {
           ref={(el) => {
             segmentRefs.current[index] = el;
           }}
+          className="segment-item"
           style={{ 
             cursor: 'pointer',
-            padding: '16px 20px',
+            padding: '16px 12px',
             borderRadius: '12px',
             transition: 'all 0.3s ease',
             backgroundColor: isActive ? '#e6f7ff' : isCompleted ? '#f6ffed' : isSavedPosition ? '#e6f7ff' : 'transparent',
             border: isActive ? '2px solid #1890ff' : isSavedPosition ? '2px solid #1890ff' : '2px solid transparent',
-            margin: '6px 0',
+            margin: '6px 8px',
             boxShadow: isActive ? '0 4px 12px rgba(24, 144, 255, 0.15)' : isSavedPosition ? '0 4px 12px rgba(24, 144, 255, 0.15)' : 'none',
           }}
           onClick={() => handleSegmentClick(index)}
@@ -331,10 +332,11 @@ export const Player: React.FC = () => {
   return (
     <div style={{ 
       width: '99vw', 
-      padding: '16px',
       boxSizing: 'border-box',
       backgroundColor: '#ffffff'
-    }}>
+    }}
+    className="main-container"
+    >
       <Card style={{ 
         height: '100%',
         borderRadius: '16px', 
@@ -348,10 +350,26 @@ export const Player: React.FC = () => {
             @media (max-width: 767px) {
               .desktop-header { display: none !important; }
               .mobile-header { display: block !important; }
+              .main-container {
+                padding: 4px !important;
+              }
+              .scroll-container {
+                padding: 16px 0 !important;
+              }
+              .segment-item {
+                padding: 16px 8px !important;
+                margin: 6px 0 !important;
+                border-radius: 0 !important;
+              }
             }
             @media (min-width: 768px) {
               .mobile-header { display: none !important; }
               .desktop-header { display: block !important; }
+              .segment-item {
+                padding: 16px 20px !important;
+                margin: 6px 8px !important;
+                border-radius: 12px !important;
+              }
             }
           `}</style>
           
@@ -677,11 +695,12 @@ export const Player: React.FC = () => {
             overflowY: 'auto',
             border: '2px solid #e8e8e8',
             borderRadius: '16px',
-            padding: '16px',
+            padding: '16px 0',
             backgroundColor: '#fafafa',
             maxHeight: 'calc(100vh - 200px)',
             minHeight: '400px'
           }}
+          className="scroll-container"
         >
           <List
             size="large"
