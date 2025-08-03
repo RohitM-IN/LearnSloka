@@ -138,10 +138,24 @@ export const Player: React.FC = () => {
   };
 
   const handleSegmentClick = (index: number) => {
+    // If clicking on the same segment that's currently playing, pause it
+    if (isPlaying && index === currentIndex) {
+      // Already playing this segment — do nothing
+      // handleStop();
+      return;
+    }
+    
+    // If playing a different segment, stop first then play the new one
     if (isPlaying) {
       handleStop();
+      // Use setTimeout to ensure the stop operation completes before starting new segment
+      setTimeout(() => {
+        handlePlay(index);
+      }, 100);
+    } else {
+      // If not playing, just start the clicked segment
+      handlePlay(index);
     }
-    handlePlay(index);
   };
 
   const handlePlayButton = () => {
@@ -170,9 +184,11 @@ export const Player: React.FC = () => {
   };
 
   const getCurrentSegmentProgress = () => {
-    if (currentIndex >= 0 && currentIndex < segments.length) {
+    if (currentIndex >= 0 && currentIndex < segments.length && audioTime > 0) {
       const { start, end } = segments[currentIndex];
-      const progress = ((audioTime - start) / (end - start)) * 100;
+      const segmentDuration = end - start;
+      const elapsedTime = Math.max(0, audioTime - start);
+      const progress = (elapsedTime / segmentDuration) * 100;
       return Math.max(0, Math.min(100, progress));
     }
     return 0;
@@ -209,7 +225,8 @@ export const Player: React.FC = () => {
     if (isPlaying && currentIndex >= 0 && currentIndex < segments.length) {
       const { start, end } = segments[currentIndex];
       
-      if (audioRef.current) {
+      // Only set the start time when changing segments or starting playback
+      if (audioRef.current && currentRepeat === 0) {
         audioRef.current.currentTime = start;
         audioRef.current.playbackRate = playbackSpeed;
         audioRef.current.play();
@@ -225,7 +242,7 @@ export const Player: React.FC = () => {
           // Check if we need to advance to next segment
           if (currentTime >= end) {
             if (enableRepeat && currentRepeat < repeatCount - 1) {
-              // Repeat current segment
+              // Repeat current segment - just reset to start without disrupting progress calculation
               setCurrentRepeat(currentRepeat + 1);
               if (audioRef.current) {
                 audioRef.current.currentTime = start;
@@ -243,7 +260,7 @@ export const Player: React.FC = () => {
             }
           }
         }
-      }, 100); // Check every 100ms
+      }, 50); // Reduced to 50ms for smoother progress updates
     }
 
     return () => {
@@ -251,7 +268,7 @@ export const Player: React.FC = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount]);
+  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed]);
 
   const visibleSegments = segments.map((segment: Segment, index: number) => {
     const isActive = index === currentIndex;
@@ -564,7 +581,7 @@ export const Player: React.FC = () => {
             marginBottom: 16, 
             padding: '0 16px',
             backgroundColor: '#f9f9f9',
-            borderRadius: '8px'
+            borderRadius: '8px',
           }}>
             <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>
