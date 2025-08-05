@@ -1,9 +1,7 @@
-import { Button, Col, InputNumber, List, Modal, Progress, Row, Switch, Typography, message } from "antd";
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
-import { FaPlay, FaRedo, FaStop } from "react-icons/fa";
+import { FaPlay, FaRedo, FaStop, FaPause } from "react-icons/fa";
 import segments from "../data/rudra_segments.json";
-
-const { Text, Title } = Typography;
 
 interface Segment {
   start: number;
@@ -23,6 +21,8 @@ export const Player: React.FC = () => {
   const [hasShownFirstTimePrompt, setHasShownFirstTimePrompt] = useState<boolean>(false);
   const [fontSize, setFontSize] = useState<number>(18);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [showControls, setShowControls] = useState<boolean>(false);
+  const [segmentRepeat, setSegmentRepeat] = useState<{ [key: number]: 'default' | 'twice' | 'infinite' }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -64,7 +64,6 @@ export const Player: React.FC = () => {
   const clearSavedPosition = () => {
     localStorage.removeItem('rudraPlayer_lastPosition');
     setHasSavedPosition(false);
-    message.success('Saved position cleared');
   };
 
   const handleFontSizeChange = (newSize: number) => {
@@ -91,13 +90,30 @@ export const Player: React.FC = () => {
     setCurrentIndex(startIndex);
     setIsPlaying(true);
     setCurrentRepeat(0);
-    
+
     // Clear saved data if starting from first line
     if (startIndex === 0) {
       clearSavedPosition();
     }
-    
+
     savePosition();
+  };
+
+  const handlePause = () => {
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  };
+
+  const handleResume = () => {
+    setIsPlaying(true);
+    if (audioRef.current) {
+      audioRef.current.play();
+    }
   };
 
   const handleStop = () => {
@@ -123,7 +139,6 @@ export const Player: React.FC = () => {
       setIsPlaying(true);
       setCurrentRepeat(0);
       savePosition();
-      message.success('Continuing from saved position');
     }
   };
 
@@ -134,17 +149,41 @@ export const Player: React.FC = () => {
     setIsPlaying(true);
     setCurrentRepeat(0);
     savePosition();
-    message.success('Starting fresh');
   };
 
+  const toggleSegmentRepeat = (index: number) => {
+    setSegmentRepeat(prev => {
+      const current = prev[index] || 'default';
+      let next: 'default' | 'twice' | 'infinite' = 'default';
+
+      if (current === 'default') {
+        next = 'twice';
+      } else if (current === 'twice') {
+        next = 'infinite';
+      } else {
+        next = 'default';
+      }
+
+      return {
+        ...prev,
+        [index]: next
+      };
+    });
+  };
+
+
   const handleSegmentClick = (index: number) => {
+    // Hide controls when clicking on a segment
+    setShowControls(false);
     // If clicking on the same segment that's currently playing, pause it
-    if (isPlaying && index === currentIndex) {
-      // Already playing this segment — do nothing
-      // handleStop();
+    if (index === currentIndex) {
+      if(isPlaying)
+        handlePause();
+      else
+        handleResume();
       return;
     }
-    
+
     // If playing a different segment, stop first then play the new one
     if (isPlaying) {
       handleStop();
@@ -160,22 +199,24 @@ export const Player: React.FC = () => {
 
   const handlePlayButton = () => {
     // Try to continue from saved position first
+    if(!isPlaying){
+      handleResume();
+    }
     if (hasSavedPosition && !isPlaying) {
       const savedPosition = localStorage.getItem('rudraPlayer_lastPosition');
       if (savedPosition) {
         const { index } = JSON.parse(savedPosition);
         handlePlay(index);
-        message.success('Continuing from saved position');
         return;
       }
     }
-    
+
     // If no saved position or already shown prompt, start from first
     if (hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
       setShowContinueModal(true);
       setHasShownFirstTimePrompt(true);
     } else {
-      handlePlay(0);
+      handlePause();
     }
   };
 
@@ -205,11 +246,11 @@ export const Player: React.FC = () => {
     if (isPlaying && currentIndex >= 0 && segmentRefs.current[currentIndex]) {
       const currentElement = segmentRefs.current[currentIndex];
       const container = scrollContainerRef.current;
-      
+
       if (currentElement && container) {
         const elementRect = currentElement.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        
+
         // Check if element is not fully visible
         if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
           currentElement.scrollIntoView({
@@ -224,9 +265,9 @@ export const Player: React.FC = () => {
   useEffect(() => {
     if (isPlaying && currentIndex >= 0 && currentIndex < segments.length) {
       const { start, end } = segments[currentIndex];
-      
+
       // Only set the start time when changing segments or starting playback
-      if (audioRef.current && currentRepeat === 0) {
+      if (audioRef.current && currentRepeat === 0 && (!audioRef.current.currentTime || audioRef.current.currentTime < start || audioRef.current.currentTime > end)) {
         audioRef.current.currentTime = start;
         audioRef.current.playbackRate = playbackSpeed;
         audioRef.current.play();
@@ -241,8 +282,37 @@ export const Player: React.FC = () => {
 
           // Check if we need to advance to next segment
           if (currentTime >= end) {
-            if (enableRepeat && currentRepeat < repeatCount - 1) {
-              // Repeat current segment - just reset to start without disrupting progress calculation
+            // Check for per-segment repeat settings
+            const segmentRepeatSetting = segmentRepeat[currentIndex] || 'default';
+            if (segmentRepeatSetting === 'infinite') {
+              // Infinite repeat - just reset to start
+              if (audioRef.current) {
+                audioRef.current.currentTime = start;
+                audioRef.current.playbackRate = playbackSpeed;
+                audioRef.current.play();
+              }
+            } else if (segmentRepeatSetting === 'twice') {
+              // Repeat twice - one additional time
+              if (currentRepeat < 1) {
+                setCurrentRepeat(currentRepeat + 1);
+                if (audioRef.current) {
+                  audioRef.current.currentTime = start;
+                  audioRef.current.playbackRate = playbackSpeed;
+                  audioRef.current.play();
+                }
+              } else {
+                // Move to next segment after playing twice
+                if (currentIndex + 1 < segments.length) {
+                  setCurrentIndex(currentIndex + 1);
+                  setCurrentRepeat(0);
+                } else {
+                  // End of all segments - clear saved data
+                  clearSavedPosition();
+                  handleStop();
+                }
+              }
+            } else if (enableRepeat && currentRepeat < repeatCount - 1) {
+              // Global repeat setting
               setCurrentRepeat(currentRepeat + 1);
               if (audioRef.current) {
                 audioRef.current.currentTime = start;
@@ -268,12 +338,12 @@ export const Player: React.FC = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed]);
+  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat]);
 
   const visibleSegments = segments.map((segment: Segment, index: number) => {
     const isActive = index === currentIndex;
     const isCompleted = index < currentIndex;
-    
+
     // Check if this segment is the saved position when not playing
     const savedPosition = localStorage.getItem('rudraPlayer_lastPosition');
     let savedIndex = -1;
@@ -290,69 +360,92 @@ export const Player: React.FC = () => {
     return {
       ...segment,
       label: (
-        <div 
+        <div
           ref={(el) => {
             segmentRefs.current[index] = el;
           }}
-          className="segment-item"
-          style={{ 
-            cursor: 'pointer',
-            padding: '16px 12px',
-            borderRadius: '12px',
-            transition: 'all 0.3s ease',
-            backgroundColor: isActive ? '#e6f7ff' : isCompleted ? '#f6ffed' : isSavedPosition ? '#e6f7ff' : 'transparent',
-            border: isActive ? '2px solid #1890ff' : isSavedPosition ? '2px solid #1890ff' : '2px solid transparent',
-            margin: '6px 8px',
-            boxShadow: isActive ? '0 4px 12px rgba(24, 144, 255, 0.15)' : isSavedPosition ? '0 4px 12px rgba(24, 144, 255, 0.15)' : 'none',
-          }}
+          className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
+              ? 'bg-green-900 border-l-4 border-green-500'
+              : isCompleted
+                ? 'bg-gray-800'
+                : isSavedPosition
+                  ? 'bg-gray-800 border-l-4 border-blue-500'
+                  : 'bg-gray-900 hover:bg-gray-800'
+            }`}
           onClick={() => handleSegmentClick(index)}
-          onMouseEnter={(e) => {
-            if (!isActive && !isSavedPosition) {
-              e.currentTarget.style.backgroundColor = '#f0f0f0';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isActive && !isSavedPosition) {
-              e.currentTarget.style.backgroundColor = isCompleted ? '#f6ffed' : 'transparent';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }
-          }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <div style={{ flex: 1 }}>
-                <Text 
-                  strong={isActive || isSavedPosition} 
-                  style={{ 
-                    color: isActive ? "#1890ff" : isCompleted ? "#52c41a" : isSavedPosition ? "#1890ff" : "#333",
-                    fontSize: `${fontSize}px`,
-                    lineHeight: '1.8',
-                    fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
-                    fontWeight: isActive || isSavedPosition ? 600 : 400,
-                    letterSpacing: '0.5px'
-                  }}
-                >
-                  {isActive ? "" : isCompleted ? "" : isSavedPosition ? "💾 " : ""}
-                  {segment.text}
-                </Text>
-                
-                {/* Progress bar for active segment */}
-                {isActive && isPlaying && (
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ fontSize: '11px', color: '#666' }}>
-                        {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
-                      </Text>
-                      {enableRepeat && (
-                        <Text style={{ fontSize: '11px', color: '#666' }}>
-                          Repeat: {currentRepeat + 1}/{repeatCount}
-                        </Text>
-                      )}
-                    </div>
+          <div className="flex flex-col">
+            <div className="flex-1">
+              <p
+                className={`${isActive
+                    ? 'text-green-400 font-semibold'
+                    : isCompleted
+                      ? 'text-gray-400'
+                      : isSavedPosition
+                        ? 'text-blue-400 font-semibold'
+                        : 'text-gray-300'
+                  } whitespace-pre-wrap break-words`}
+                style={{
+                  fontSize: `${fontSize}px`,
+                  lineHeight: '1.6',
+                  fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
+                }}
+              >
+                {segment.text}
+              </p>
+            </div>
+
+            <div className="flex justify-between items-end mt-2">
+              {/* Progress bar for active segment */}
+              {isActive && isPlaying && (
+                <div className="flex-1 mr-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-400">
+                      {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
+                    </span>
+                    {enableRepeat && (
+                      <span className="text-xs text-gray-400">
+                        Repeat: {currentRepeat + 1}/{repeatCount}
+                      </span>
+                    )}
+                    {segmentRepeat[index] === 'twice' && (
+                      <span className="text-xs text-green-500">
+                        2x
+                      </span>
+                    )}
+                    {segmentRepeat[index] === 'infinite' && (
+                      <span className="text-xs text-green-500">
+                        ∞
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
+                  <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5">
+                    <div
+                      className="bg-green-500 h-1.5 rounded-full"
+                      style={{ width: `${getCurrentSegmentProgress()}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Spacer to maintain consistent width when progress bar is not shown */}
+              {(!isActive || !isPlaying) && <div className="flex-1"></div>}
+
+              {/* Repeat button at bottom right */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSegmentRepeat(index);
+                }}
+                className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
+                    ? 'text-green-500 bg-green-900'
+                    : 'text-gray-500 hover:text-gray-300'
+                  }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -360,482 +453,411 @@ export const Player: React.FC = () => {
     };
   });
 
+
   return (
-    <div style={{ 
-      width: '99vw', 
-      padding: '16px',
-      boxSizing: 'border-box',
-      backgroundColor: '#ffffff'
-    }}
-    className="main-container"
-    >
-      <div style={{ 
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: '#ffffff'
-      }}>
-        <div style={{ marginBottom: 24 }}>
-          <style>{`
-            @media (max-width: 767px) {
-              .desktop-header { display: none !important; }
-              .mobile-header { display: block !important; }
-              .main-container {
-                padding: 4px !important;
-              }
-              .scroll-container {
-                padding: 16px 0 !important;
-              }
-              .segment-item {
-                padding: 16px 8px !important;
-                margin: 6px 0 !important;
-                border-radius: 0 !important;
-              }
-            }
-            @media (min-width: 768px) {
-              .mobile-header { display: none !important; }
-              .desktop-header { display: block !important; }
-              .segment-item {
-                padding: 16px 20px !important;
-                margin: 6px 8px !important;
-                border-radius: 12px !important;
-              }
-            }
-          `}</style>
-          
-          {/* Mobile Header - Stacked Layout */}
-          <div className="mobile-header" style={{ display: 'none' }}>
-            <Title level={1} style={{ 
-              textAlign: 'center', 
-              marginBottom: 8, 
-              color: '#1890ff',
-              fontSize: 'clamp(18px, 6vw, 24px)',
-              fontWeight: 700,
-              letterSpacing: '0.5px',
-              padding: '0 8px',
-              lineHeight: '1.3'
-            }}>
-              रुद्रपाठ प्रशिक्षणम्
-            </Title>
-            
-            {/* Created By section for mobile */}
-            <div style={{ 
-              textAlign: 'center', 
-              marginBottom: 12,
-              padding: '0 8px'
-            }}>
-              <Text style={{ 
-                fontSize: '12px', 
-                fontWeight: 600, 
-                color: '#d32f2f',
-                display: 'block',
-                lineHeight: '1.2'
-              }}>
-                Created By
-              </Text>
-              <Text style={{ 
-                fontSize: '12px', 
-                fontWeight: 600, 
-                color: '#d32f2f',
-                display: 'block',
-                lineHeight: '1.2'
-              }}>
-                Rohit Sopan Mahajan
-              </Text>
-            </div>
-            
-            {/* Mobile Status Bar */}
-            <div style={{ 
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-              padding: '0 8px'
-            }}>
-              {isPlaying && (
-                <div style={{ 
-                  padding: '6px 10px', 
-                  backgroundColor: '#f0f8ff', 
-                  borderRadius: '6px',
-                  border: '2px solid #d6e4ff',
-                  textAlign: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <Text strong style={{ fontSize: '12px', color: '#1890ff' }}>
-                    {formatTime(audioTime)}
-                  </Text>
-                  {currentIndex >= 0 && (
-                    <Text type="secondary" style={{ marginLeft: 4, fontSize: '10px' }}>
-                      ({currentIndex + 1}/{segments.length})
-                    </Text>
-                  )}
-                </div>
-              )}
-              {hasSavedPosition && !isPlaying && (
-                <Button 
-                  size="small"
-                  onClick={clearSavedPosition}
-                  style={{ 
-                    fontSize: '9px',
-                    height: '28px',
-                    padding: '0 8px',
-                    backgroundColor: '#ff7875',
-                    borderColor: '#ff7875',
-                    color: 'white',
-                    borderRadius: '4px',
-                    fontWeight: 500
-                  }}
-                >
-                  Clear Cache
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Desktop Header - Horizontal Layout */}
-          <div className="desktop-header" style={{ display: 'none' }}>
-            <Title level={1} style={{ 
-              textAlign: 'center', 
-              marginBottom: 0, 
-              color: '#1890ff',
-              fontSize: 'clamp(24px, 4vw, 32px)',
-              fontWeight: 700,
-              letterSpacing: '1px',
-              padding: '0 16px'
-            }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                width: '100%',
-                minHeight: '48px'
-              }}>
-                <div style={{ 
-                  flex: 1, 
-                  fontSize: '14px', 
-                  fontWeight: 600, 
-                  color: '#d32f2f',
-                  textAlign: 'left',
-                  lineHeight: '1.3'
-                }}>
-                  <div>Created By</div>
-                  <div>Rohit Sopan Mahajan</div>
-                </div>
-                <div style={{ flex: 2, textAlign: 'center' }}>
-                रुद्रपाठ प्रशिक्षणम्
-                </div>
-                <div style={{ flex: 1, textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                  {isPlaying && (
-                    <div style={{ 
-                      padding: '4px 12px', 
-                      backgroundColor: '#f0f8ff', 
-                      borderRadius: '6px',
-                      border: '2px solid #d6e4ff',
-                      textAlign: 'center',
-                      minWidth: '120px',
-                      height: '32px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>
-                        Total: {formatTime(audioTime)}
-                      </Text>
-                      {currentIndex >= 0 && (
-                        <Text type="secondary" style={{ marginLeft: 6, fontSize: '11px' }}>
-                          {currentIndex + 1}/{segments.length}
-                        </Text>
-                      )}
-                    </div>
-                  )}
-                  {hasSavedPosition && !isPlaying && (
-                    <Button 
-                      size="small"
-                      onClick={clearSavedPosition}
-                      style={{ 
-                        fontSize: '10px',
-                        height: '24px',
-                        padding: '0 6px',
-                        backgroundColor: '#ff7875',
-                        borderColor: '#ff7875',
-                        color: 'white',
-                        borderRadius: '4px',
-                        fontWeight: 500
-                      }}
-                    >
-                      Clear Cache
-                    </Button>
-                  )}
-                </div>
+    <div className="flex flex-col h-screen bg-spotify-black text-spotify-text">
+      {/* Header */}
+      <div className="bg-spotify-gray p-4 shadow-lg">
+        <div className="container mx-auto">
+          {/* Mobile Header */}
+          <div className="md:hidden">
+            <div className="flex justify-between items-center">
+              <h1 className="text-lg font-bold text-green-500 flex-1 text-center px-2">रुद्रपाठ प्रशिक्षणम्</h1>
+              <div className="text-xs text-gray-400">
+                <p className="text-[10px]">Created By</p>
+                <p className="font-semibold text-xs">Rohit Sopan Mahajan</p>
               </div>
-            </Title>
-          </div>
-        </div>
 
-        {/* Overall Progress Bar - shown when playing */}
-        {isPlaying && currentIndex >= 0 && (
-          <div style={{ 
-            marginBottom: 16, 
-            padding: '0 16px',
-            backgroundColor: '#f9f9f9',
-            borderRadius: '8px',
-          }}>
-            <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>
-                Overall Progress
-              </Text>
-              <Text style={{ fontSize: '12px', color: '#666' }}>
-                {currentIndex + 1} of {segments.length} segments
-              </Text>
-            </div>
-            <Progress 
-              percent={Number((((currentIndex + getCurrentSegmentProgress() / 100) / segments.length) * 100).toFixed(2))}
-              strokeColor={{
-                '0%': '#108ee9',
-                '100%': '#87d068',
-              }}
-              trailColor="#e6f7ff"
-              size="default"
-            />
-          </div>
-        )}
 
-        <Row gutter={[12, 12]} style={{ marginBottom: 20, padding: '0 8px' }}>
-          <Col xs={24} sm={12} md={6}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: '12px',
-              flexWrap: 'wrap'
-            }}>
-              <Button 
-                type="primary" 
-                size="large"
-                icon={<FaPlay />}
-                onClick={handlePlayButton} 
-                disabled={isPlaying}
-                style={{ 
-                  height: '48px', 
-                  width: '48px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              />
-              <Button 
-                size="large"
-                icon={<FaStop />}
-                onClick={handleStop} 
-                disabled={!isPlaying}
-                style={{ 
-                  height: '48px', 
-                  width: '48px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              />
-              <Button 
-                size="large"
-                icon={<FaRedo />}
-                onClick={handleRefreshButton}
-                disabled={isPlaying}
-                style={{ 
-                  height: '48px', 
-                  width: '48px',
-                  borderRadius: '8px',
-                  backgroundColor: '#52c41a',
-                  borderColor: '#52c41a',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              />
-            </div>
-          </Col>
-          
-          <Col xs={24} sm={12} md={6}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-              minHeight: '40px'
-            }}>
-              <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>Repeat:</Text>
-              <Switch 
-                checked={enableRepeat}
-                onChange={setEnableRepeat}
-                size="small"
-              />
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                minWidth: '80px',
-                justifyContent: 'center',
-                height: '32px'
-              }}>
-                {enableRepeat && (
-                  <InputNumber
-                    min={1}
-                    max={10}
-                    value={repeatCount}
-                    onChange={(value) => setRepeatCount(value || 1)}
-                    style={{ width: '80px', height: '32px' }}
-                    size="small"
-                  />
+              <div className="items-center space-x-2 hidden md:flex">
+                {isPlaying && (
+                  <div className="bg-gray-800 px-2 py-1 rounded-full flex items-center">
+                    <span className="text-green-500 font-semibold text-sm">{formatTime(audioTime)}</span>
+                    {currentIndex >= 0 && (
+                      <span className="text-gray-400 text-xs ml-1">
+                        ({currentIndex + 1}/{segments.length})
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
-          </Col>
+          </div>
 
-          <Col xs={24} sm={12} md={6}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-              minHeight: '40px'
-            }}>
-              <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>Speed:</Text>
-              <Button 
-                size="small"
-                onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
-                disabled={playbackSpeed <= 0.25}
-                style={{ 
-                  height: '28px', 
-                  width: '28px',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px'
-                }}
-              >
-                -
-              </Button>
-              <Text style={{ fontSize: '12px', minWidth: '40px', textAlign: 'center' }}>
-                {playbackSpeed}x
-              </Text>
-              <Button 
-                size="small"
-                onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
-                disabled={playbackSpeed >= 2}
-                style={{ 
-                  height: '28px', 
-                  width: '28px',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px'
-                }}
-              >
-                +
-              </Button>
+          {/* Desktop Header */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-green-500 mr-6">रुद्रपाठ प्रशिक्षणम्</h1>
             </div>
-          </Col>
 
-          <Col xs={24} sm={12} md={6}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-              minHeight: '40px'
-            }}>
-              <Text strong style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>Font Size:</Text>
-              <Button 
-                size="small"
-                onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
-                disabled={fontSize <= 14}
-                style={{ 
-                  height: '28px', 
-                  width: '28px',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px'
-                }}
-              >
-                A-
-              </Button>
-              <Text style={{ fontSize: '12px', minWidth: '30px', textAlign: 'center' }}>
-                {fontSize}px
-              </Text>
-              <Button 
-                size="small"
-                onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
-                disabled={fontSize >= 32}
-                style={{ 
-                  height: '28px', 
-                  width: '28px',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px'
-                }}
-              >
-                A+
-              </Button>
+            <div className="flex items-center space-x-4">
+              {isPlaying && (
+                <div className="bg-gray-800 px-3 py-1 rounded-full flex items-center">
+                  <span className="text-green-500 font-semibold">{formatTime(audioTime)}</span>
+                  {currentIndex >= 0 && (
+                    <span className="text-gray-400 text-sm ml-2">
+                      ({currentIndex + 1}/{segments.length})
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
+                <span className="font-semibold">Rohit Sopan Mahajan</span>
+              </div>
             </div>
-          </Col>
-        </Row>
-
-        <div 
-          ref={scrollContainerRef}
-          style={{ 
-            flex: 1,
-            overflowY: 'auto',
-            border: '2px solid #e8e8e8',
-            borderRadius: '16px',
-            padding: '16px 0',
-            backgroundColor: '#fafafa',
-            maxHeight: 'calc(100vh - 200px)',
-            minHeight: '400px'
-          }}
-          className="scroll-container"
-        >
-          <List
-            size="large"
-            dataSource={visibleSegments}
-            renderItem={(item) => <List.Item style={{ padding: 0, border: 'none' }}>{item.label}</List.Item>}
-            style={{ margin: 0 }}
-          />
+          </div>
         </div>
       </div>
 
+      {/* Main Controls - Always Visible */}
+      <div className="bg-spotify-gray p-2">
+        <div className="container mx-auto">
+          {/* Mobile Layout */}
+          <div className="md:hidden">
+            <div className="flex justify-center items-center space-x-2">
+              <div>
+                <button
+                  onClick={handleRefreshButton}
+                  disabled={isPlaying}
+                  className={`p-2 rounded-full ${isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
+                >
+                  <FaRedo className="text-base" />
+                </button>
+              </div>
+              <div>
+                <button
+                  onClick={handlePlayButton}
+                  //disabled={isPlaying && currentIndex >= 0}
+                  className={`p-2 rounded-full ${isPlaying && currentIndex >= 0 ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
+                >
+                  {isPlaying ? <FaPause className="text-base" /> : <FaPlay className="text-base ml-0.5" />}
+                </button>
+              </div>
+              <div>
+                <button
+                  onClick={handleStop}
+                  disabled={!isPlaying}
+                  className={`p-2 rounded-full ${!isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 hover:bg-gray-700 text-white'} transition-colors`}
+                >
+                  <FaStop className="text-base" />
+                </button>
+
+              </div>
+
+              {isPlaying ? (
+                <div className="bg-gray-800 px-2 py-1 rounded-full flex items-center w-32 justify-center">
+                  <span className="text-green-500 font-semibold text-sm">{formatTime(audioTime)}</span>
+                  {currentIndex >= 0 && (
+                    <span className="text-gray-400 text-xs ml-1">
+                      ({currentIndex + 1}/{segments.length})
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="w-32 h-8"></div> // Placeholder to maintain consistent width
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden md:flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <div>
+                <button
+                  onClick={handleRefreshButton}
+                  disabled={isPlaying}
+                  className={`p-2 rounded-full ${isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
+                >
+                  <FaRedo className="text-base" />
+                </button>
+
+              </div>
+              <div>
+                <button
+                  onClick={handlePlayButton}
+                  //disabled={isPlaying && currentIndex >= 0}
+                  className={`p-2 rounded-full ${isPlaying && currentIndex >= 0 ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
+                >
+                  {isPlaying ? <FaPause className="text-base" /> : <FaPlay className="text-base ml-0.5" />}
+                </button>
+
+              </div>
+              <div>
+                <button
+                  onClick={handleStop}
+                  disabled={!isPlaying}
+                  className={`p-2 rounded-full ${!isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 hover:bg-gray-700 text-white'} transition-colors`}
+                >
+                  <FaStop className="text-base" />
+                </button>
+              </div>
+            </div>
+
+            {/* Additional Controls for Desktop */}
+            <div className="flex items-center space-x-6 bg-gray-800 rounded-full px-4 py-2">
+              {/* Repeat Controls */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-300">Repeat:</span>
+                <button
+                  onClick={() => setEnableRepeat(!enableRepeat)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${enableRepeat
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                >
+                  {enableRepeat ? 'ON' : 'OFF'}
+                </button>
+                {enableRepeat && (
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => setRepeatCount(Math.max(1, repeatCount - 1))}
+                      className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white text-xs"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm text-gray-300 w-6 text-center">{repeatCount}</span>
+                    <button
+                      onClick={() => setRepeatCount(Math.min(10, repeatCount + 1))}
+                      className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white text-xs"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Speed Controls */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-300">Speed:</span>
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
+                    disabled={playbackSpeed <= 0.25}
+                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed <= 0.25
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    -
+                  </button>
+                  <span className="text-sm text-gray-300 w-10 text-center">{playbackSpeed}x</span>
+                  <button
+                    onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
+                    disabled={playbackSpeed >= 2}
+                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed >= 2
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Font Size Controls */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-300">Font:</span>
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
+                    disabled={fontSize <= 14}
+                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize <= 14
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    A-
+                  </button>
+                  <span className="text-sm text-gray-300 w-8 text-center">{fontSize}px</span>
+                  <button
+                    onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
+                    disabled={fontSize >= 32}
+                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize >= 32
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    A+
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Controls Toggle Button - Mobile Only */}
+      <div className="bg-spotify-gray p-2 md:hidden">
+        <div className="container mx-auto text-center">
+          <button
+            onClick={() => setShowControls(!showControls)}
+            className="text-spotify-subtext text-sm hover:text-white transition-colors"
+          >
+            {showControls ? 'Hide Controls' : 'Show Controls'}
+          </button>
+        </div>
+      </div>
+
+      {/* Controls */}
+      {showControls && (
+        <div className="bg-spotify-gray p-4 md:hidden">
+          <div className="container mx-auto">
+            {/* Mobile Controls */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Repeat Controls */}
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Repeat</span>
+                  <button
+                    onClick={() => setEnableRepeat(!enableRepeat)}
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${enableRepeat
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                      }`}
+                  >
+                    {enableRepeat ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                {enableRepeat && (
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setRepeatCount(Math.max(1, repeatCount - 1))}
+                      className="w-7 h-7 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm">{repeatCount}</span>
+                    <button
+                      onClick={() => setRepeatCount(Math.min(10, repeatCount + 1))}
+                      className="w-7 h-7 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Speed Controls */}
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-sm font-medium mb-2">Speed</div>
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
+                    disabled={playbackSpeed <= 0.25}
+                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed <= 0.25
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    -
+                  </button>
+                  <span className="text-sm">{playbackSpeed}x</span>
+                  <button
+                    onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
+                    disabled={playbackSpeed >= 2}
+                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed >= 2
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Font Size Controls */}
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-sm font-medium mb-2">Font Size</div>
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
+                    disabled={fontSize <= 14}
+                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize <= 14
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    A-
+                  </button>
+                  <span className="text-sm">{fontSize}px</span>
+                  <button
+                    onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
+                    disabled={fontSize >= 32}
+                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize >= 32
+                        ? 'bg-gray-700 text-gray-500'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      }`}
+                  >
+                    A+
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Display */}
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-sm font-medium mb-2">Status</div>
+                <div className="text-center">
+                  {isPlaying ? (
+                    <span className="text-green-500 text-sm">Playing</span>
+                  ) : (
+                    <span className="text-gray-400 text-sm">Stopped</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Segments List */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto bg-spotify-light-gray py-4 px-2"
+      >
+        <div className="container mx-auto">
+          {visibleSegments.map((segment, index) => (
+            <div key={index} className="mb-2">
+              {segment.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Audio Element */}
       <audio
         ref={audioRef}
         src="/rudra.mp3"
         preload="auto"
         onEnded={handleStop}
-        style={{ display: 'none' }}
+        className="hidden"
       />
 
-      <Modal
-        title="Continue from where you left off?"
-        open={showContinueModal}
-        onOk={handleContinue}
-        onCancel={handleStartFresh}
-        okText="Continue"
-        cancelText="Start Fresh"
-        centered
-      >
-        <p>We found your last played position. Would you like to continue from where you left off or start fresh?</p>
-      </Modal>
+      {/* Continue Modal */}
+      {showContinueModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Continue from where you left off?</h3>
+            <p className="text-gray-300 mb-6">
+              We found your last played position. Would you like to continue from where you left off or start fresh?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleStartFresh}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md font-medium transition-colors"
+              >
+                Start Fresh
+              </button>
+              <button
+                onClick={handleContinue}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md font-medium transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
