@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
 import { FaPlay, FaRedo, FaStop, FaPause } from "react-icons/fa";
-import segments from "../data/rudra_segments.json";
 
 interface Segment {
   start: number;
@@ -9,7 +8,17 @@ interface Segment {
   text: string;
 }
 
-export const Player: React.FC = () => {
+interface PlayerProps {
+  audioSrc: string;
+  segments: Segment[];
+  localStoragePrefix?: string;
+}
+
+export const Player: React.FC<PlayerProps> = ({
+  audioSrc,
+  segments,
+  localStoragePrefix = "player"
+}) => {
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState<number>(0);
@@ -30,7 +39,7 @@ export const Player: React.FC = () => {
 
   // Load saved position on component mount
   useEffect(() => {
-    const savedPosition = localStorage.getItem('rudraPlayer_lastPosition');
+    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
     if (savedPosition) {
       const { index, time } = JSON.parse(savedPosition);
       setCurrentIndex(index);
@@ -39,21 +48,21 @@ export const Player: React.FC = () => {
     }
 
     // Load saved font size
-    const savedFontSize = localStorage.getItem('rudraPlayer_fontSize');
+    const savedFontSize = localStorage.getItem(`${localStoragePrefix}_fontSize`);
     if (savedFontSize) {
       setFontSize(parseInt(savedFontSize));
     }
 
     // Load saved playback speed
-    const savedSpeed = localStorage.getItem('rudraPlayer_playbackSpeed');
+    const savedSpeed = localStorage.getItem(`${localStoragePrefix}_playbackSpeed`);
     if (savedSpeed) {
       setPlaybackSpeed(parseFloat(savedSpeed));
     }
-  }, []);
+  }, [localStoragePrefix]);
 
   const savePosition = () => {
     if (currentIndex >= 0) {
-      localStorage.setItem('rudraPlayer_lastPosition', JSON.stringify({
+      localStorage.setItem(`${localStoragePrefix}_lastPosition`, JSON.stringify({
         index: currentIndex,
         time: audioTime
       }));
@@ -62,18 +71,18 @@ export const Player: React.FC = () => {
   };
 
   const clearSavedPosition = () => {
-    localStorage.removeItem('rudraPlayer_lastPosition');
+    localStorage.removeItem(`${localStoragePrefix}_lastPosition`);
     setHasSavedPosition(false);
   };
 
   const handleFontSizeChange = (newSize: number) => {
     setFontSize(newSize);
-    localStorage.setItem('rudraPlayer_fontSize', newSize.toString());
+    localStorage.setItem(`${localStoragePrefix}_fontSize`, newSize.toString());
   };
 
   const handleSpeedChange = (newSpeed: number) => {
     setPlaybackSpeed(newSpeed);
-    localStorage.setItem('rudraPlayer_playbackSpeed', newSpeed.toString());
+    localStorage.setItem(`${localStoragePrefix}_playbackSpeed`, newSpeed.toString());
     if (audioRef.current) {
       audioRef.current.playbackRate = newSpeed;
     }
@@ -132,7 +141,7 @@ export const Player: React.FC = () => {
 
   const handleContinue = () => {
     setShowContinueModal(false);
-    const savedPosition = localStorage.getItem('rudraPlayer_lastPosition');
+    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
     if (savedPosition) {
       const { index } = JSON.parse(savedPosition);
       setCurrentIndex(index);
@@ -203,7 +212,7 @@ export const Player: React.FC = () => {
       handleResume();
     }
     if (hasSavedPosition && !isPlaying) {
-      const savedPosition = localStorage.getItem('rudraPlayer_lastPosition');
+      const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
       if (savedPosition) {
         const { index } = JSON.parse(savedPosition);
         handlePlay(index);
@@ -338,14 +347,14 @@ export const Player: React.FC = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat]);
+  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, segments]);
 
   const visibleSegments = segments.map((segment: Segment, index: number) => {
     const isActive = index === currentIndex;
     const isCompleted = index < currentIndex;
 
     // Check if this segment is the saved position when not playing
-    const savedPosition = localStorage.getItem('rudraPlayer_lastPosition');
+    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
     let savedIndex = -1;
     if (savedPosition && !isPlaying) {
       try {
@@ -827,7 +836,7 @@ export const Player: React.FC = () => {
       {/* Audio Element */}
       <audio
         ref={audioRef}
-        src="/rudra.mp3"
+        src={audioSrc}
         preload="auto"
         onEnded={handleStop}
         className="hidden"
