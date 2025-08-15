@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "title": "रुद्रपाठ",
+    "slug": "rudra-path",
+    "artist": "Traditional",
+    "tags": ["hindu", "mantra", "shiva"],
+    "audioSrc": "/rudra.mp3",
+    "srtUrl": "/rudra.srt"
+  }
+]

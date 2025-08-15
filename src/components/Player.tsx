@@ -12,13 +12,13 @@ interface Segment {
 interface PlayerProps {
   audioSrc: string;
   srtUrl : string;
-  localStoragePrefix?: string;
+  localStoragePrefix: string;
 }
 
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
   srtUrl ,
-  localStoragePrefix = "player"
+  localStoragePrefix
 }) => {
   const [segments, setSegments] = useState<SRTSubtitle[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
@@ -233,6 +233,10 @@ export const Player: React.FC<PlayerProps> = ({
     // If no saved position or already shown prompt, start from first
     if (hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
       setShowContinueModal(true);
+      setHasShownFirstTimePrompt(true);
+    }
+    else if (!hasSavedPosition && !isPlaying) {
+      handlePlay(0);
       setHasShownFirstTimePrompt(true);
     } else {
       handlePause();
@@ -475,62 +479,9 @@ export const Player: React.FC<PlayerProps> = ({
 
   return (
     <div className="flex flex-col h-screen bg-spotify-black text-spotify-text">
-      {/* Header */}
-      <div className="bg-spotify-gray p-4 shadow-lg">
-        <div className="container mx-auto">
-          {/* Mobile Header */}
-          <div className="md:hidden">
-            <div className="flex justify-between items-center">
-              <h1 className="text-lg font-bold text-green-500 flex-1 text-center px-2">रुद्रपाठ प्रशिक्षणम्</h1>
-              <div className="text-xs text-gray-400">
-                <p className="text-[10px]">Created By</p>
-                <p className="font-semibold text-xs">Rohit Sopan Mahajan</p>
-              </div>
-
-
-              <div className="items-center space-x-2 hidden md:flex">
-                {isPlaying && (
-                  <div className="bg-gray-800 px-2 py-1 rounded-full flex items-center">
-                    <span className="text-green-500 font-semibold text-sm">{formatTime(audioTime)}</span>
-                    {currentIndex >= 0 && (
-                      <span className="text-gray-400 text-xs ml-1">
-                        ({currentIndex + 1}/{segments.length})
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop Header */}
-          <div className="hidden md:flex justify-between items-center">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-green-500 mr-6">रुद्रपाठ प्रशिक्षणम्</h1>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              {isPlaying && (
-                <div className="bg-gray-800 px-3 py-1 rounded-full flex items-center">
-                  <span className="text-green-500 font-semibold">{formatTime(audioTime)}</span>
-                  {currentIndex >= 0 && (
-                    <span className="text-gray-400 text-sm ml-2">
-                      ({currentIndex + 1}/{segments.length})
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
-                <span className="font-semibold">Rohit Sopan Mahajan</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Main Controls - Always Visible */}
-      <div className="bg-spotify-gray p-2">
+      <div className="bg-spotify-gray py-1 px-2">
         <div className="container mx-auto">
           {/* Mobile Layout */}
           <div className="md:hidden">
@@ -707,7 +658,7 @@ export const Player: React.FC<PlayerProps> = ({
       </div>
 
       {/* Controls Toggle Button - Mobile Only */}
-      <div className="bg-spotify-gray p-2 md:hidden">
+      <div className="bg-spotify-gray py-1 px-2 md:hidden">
         <div className="container mx-auto text-center">
           <button
             onClick={() => setShowControls(!showControls)}
@@ -720,7 +671,7 @@ export const Player: React.FC<PlayerProps> = ({
 
       {/* Controls */}
       {showControls && (
-        <div className="bg-spotify-gray p-4 md:hidden">
+        <div className="bg-spotify-gray p-2 md:hidden">
           <div className="container mx-auto">
             {/* Mobile Controls */}
             <div className="grid grid-cols-2 gap-3">
@@ -832,7 +783,7 @@ export const Player: React.FC<PlayerProps> = ({
       {/* Segments List */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto bg-spotify-light-gray py-4 px-2"
+        className="flex-1 overflow-y-auto bg-spotify-light-gray py-2 px-2"
       >
         <div className="container mx-auto">
           {visibleSegments.map((segment, index) => (
