@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  learnsloka:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: learnsloka
+    restart: unless-stopped
+    # ports:
+    #   - "8080:80" # You can change 8080 to any host port you want
+    networks:
+      - default
+
+networks:
+  default:
+    name: nginxproxymanager
+    external: true
