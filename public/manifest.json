@@ -1,0 +1,17 @@
+{
+    "name": "श्लोकपाठम्",
+    "short_name": "Shlokpatham",
+    "description": "Sanskrit shloka player with synced text",
+    "start_url": "/",
+    "scope": ".",
+    "display": "standalone",
+    "theme_color": "#181818",
+    "background_color": "#121212",
+    "icons": [
+      { "src": "/android-icon-192x192.png", "sizes": "192x192", "type": "image/png" },
+      { "src": "/ms-icon-144x144.png", "sizes": "144x144", "type": "image/png" },
+      { "src": "/apple-icon-180x180.png", "sizes": "180x180", "type": "image/png" },
+      { "src": "/favicon-96x96.png", "sizes": "96x96", "type": "image/png" }
+    ]
+  }
+  
