@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
 import { FaPlay, FaRedo, FaStop, FaPause } from "react-icons/fa";
+import { parseSRT, type SRTSubtitle } from "../utils/parser";
 
 interface Segment {
   start: number;
@@ -10,15 +11,16 @@ interface Segment {
 
 interface PlayerProps {
   audioSrc: string;
-  segments: Segment[];
+  srtUrl : string;
   localStoragePrefix?: string;
 }
 
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
-  segments,
+  srtUrl ,
   localStoragePrefix = "player"
 }) => {
+  const [segments, setSegments] = useState<SRTSubtitle[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState<number>(0);
@@ -36,6 +38,14 @@ export const Player: React.FC<PlayerProps> = ({
   const intervalRef = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    // Load SRT from URL
+    useEffect(() => {
+      fetch(srtUrl)
+        .then((res) => res.text())
+        .then((srt) => setSegments(parseSRT(srt)));
+    }, [srtUrl]);
+
 
   // Load saved position on component mount
   useEffect(() => {
