@@ -38,7 +38,7 @@ function App() {
       .then(response => response.json())
       .then(data => {
         setSongs(data);
-        
+
         // Check if we're viewing a specific song
         const slug = getSongSlugFromUrl();
         if (slug && slug !== '') {
@@ -47,7 +47,7 @@ function App() {
             setCurrentSong(song);
           }
         }
-        
+
         setLoading(false);
       })
       .catch(error => {
@@ -96,39 +96,50 @@ function App() {
 
   if (currentSong) {
     return (
-      <div>
+      <div className="flex flex-col h-screen overflow-hidden">
         <div className="bg-spotify-gray py-2 px-4 shadow-lg">
           <div className="container mx-auto">
             {/* Mobile Header */}
             <div className="md:hidden">
+              <div className="relative">
+                <button
+                  onClick={handleBackToList}
+                  className="text-green-500 hover:text-green-400 mr-2 absolute top-1"
+                >
+                  <IoMdArrowRoundBack />
+                </button>
+                <div className="flex justify-center items-center">
+                  <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
+                </div>
+
+              </div>
+            </div>
+            <div className="md:hidden">
               <div className="flex flex-col space-y-2">
                 <div className="flex justify-between items-center">
-                  <button
-                    onClick={handleBackToList}
-                    className="text-green-500 hover:text-green-400"
-                  >
-                    <IoMdArrowRoundBack />
-                  </button>
-                  <div className="text-xs text-gray-400 text-right">
-                    <p className="text-[10px]">Created By</p>
-                    <p className="font-semibold text-xs">Rohit Sopan Mahajan</p>
+                  <div className="flex items-center">
+                    <span className="text-lg font-bold text-green-500">{currentSong?.title}</span>
                   </div>
-                </div>
-                <div className="text-center">
-                  <h1 className="text-lg font-bold text-green-500">{currentSong?.title}</h1>
+                  <div className="text-xs text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
+                    <span className="font-semibold">Rohit Sopan Mahajan</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Desktop Header */}
             <div className="hidden md:flex justify-between items-center">
-              <button
-                onClick={handleBackToList}
-                className="hover:cursor-pointer"
-              >
-                <IoMdArrowRoundBack className="hover:text-green-400" />
-              </button>
-              <h1 className="text-2xl font-bold text-green-500">{currentSong?.title}</h1>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBackToList}
+                  className="hover:cursor-pointer"
+                >
+                  <IoMdArrowRoundBack className="hover:text-green-400" />
+                </button>
+                <span className="text-2xl font-bold text-green-500">{currentSong?.title}</span>
+
+              </div>
+              <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
               <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
                 <span className="font-semibold">Rohit Sopan Mahajan</span>
               </div>
@@ -151,31 +162,21 @@ function App() {
         <div className="container mx-auto">
           {/* Mobile Header */}
           <div className="md:hidden">
-            <div className="flex justify-between items-center">
-              <div></div> {/* Empty div for spacing */}
-              <div className="text-xs text-gray-400 text-right">
-                <p className="text-[10px]">Created By</p>
-                <p className="font-semibold text-xs">Rohit Sopan Mahajan</p>
-              </div>
-            </div>
-            <div className="text-center mt-2">
-              <h1 className="text-lg font-bold text-green-500">श्लोकपाठम्</h1>
+            <div className="flex justify-center">
+              <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
             </div>
           </div>
 
           {/* Desktop Header */}
-          <div className="hidden md:flex justify-between items-center">
+          <div className="hidden md:flex justify-center items-center">
             <div></div> {/* Empty div for spacing */}
             <h1 className="text-2xl font-bold text-green-500">श्लोकपाठम्</h1>
-            <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
-              <span className="font-semibold">Rohit Sopan Mahajan</span>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Song List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-12">
         <div className="container mx-auto">
           <h2 className="text-xl mb-4 font-bold text-green-500">श्लोकसूची</h2>
           {songs.length === 0 ? (
@@ -207,6 +208,14 @@ function App() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-spotify-gray py-2 px-4 text-center">
+        <p className="text-xs text-gray-400">
+          <span className="text-[10px]">Created By</span>{" "}
+          <span className="font-semibold text-xs">Rohit Sopan Mahajan</span>
+        </p>
       </div>
     </div>
   );

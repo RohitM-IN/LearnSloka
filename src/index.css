@@ -17,3 +17,5 @@ body {
   background-color: var(--color-spotify-black);
   color: var(--color-spotify-text);
 }
+
+@plugin 'tailwind-scrollbar';

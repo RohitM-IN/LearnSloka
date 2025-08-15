@@ -478,7 +478,7 @@ export const Player: React.FC<PlayerProps> = ({
 
 
   return (
-    <div className="flex flex-col h-screen bg-spotify-black text-spotify-text">
+    <div className="flex flex-col flex-1 overflow-hidden bg-spotify-black text-spotify-text">
 
       {/* Main Controls - Always Visible */}
       <div className="bg-spotify-gray py-1 px-2">
@@ -656,7 +656,6 @@ export const Player: React.FC<PlayerProps> = ({
           </div>
         </div>
       </div>
-
       {/* Controls Toggle Button - Mobile Only */}
       <div className="bg-spotify-gray py-1 px-2 md:hidden">
         <div className="container mx-auto text-center">
@@ -668,7 +667,6 @@ export const Player: React.FC<PlayerProps> = ({
           </button>
         </div>
       </div>
-
       {/* Controls */}
       {showControls && (
         <div className="bg-spotify-gray p-2 md:hidden">
@@ -779,11 +777,10 @@ export const Player: React.FC<PlayerProps> = ({
           </div>
         </div>
       )}
-
       {/* Segments List */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto bg-spotify-light-gray py-2 px-2"
+        className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar scrollbar-thumb-gray-600 scrollbar-track-gray-800"
       >
         <div className="container mx-auto">
           {visibleSegments.map((segment, index) => (
