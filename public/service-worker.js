@@ -3,8 +3,10 @@ const OFFLINE_ASSETS = [
   "/",
   "/index.html",
   "/offline.html",
-  "/rudra.mp3",
-  "/rudra.srt",
+  "/rudra/rudra.mp3",
+  "/rudra/rudra.srt",
+  "/purushasuktam/purushsukta.mp3",
+  "/purushasuktam/purushsukta.srt",
   "/songs.json",
   "/vite.svg",
   "/favicon.ico",
@@ -76,12 +78,11 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request).then((fresh) => {
         if (fresh.ok && fresh.status === 200) {
-          const freshClone = fresh.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, freshClone));
+          return fresh;
         }
-        return fresh;
+        throw new Error("Network response was not ok");
       }).catch((err) => {
-        console.error("Failed to fetch resource:", err);
+        console.error("Failed to fetch resource from network:", err);
         return caches.match(event.request); // Fallback to cache if available
       })
     );

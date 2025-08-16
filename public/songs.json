@@ -3,9 +3,26 @@
     "id": 1,
     "title": "रुद्रपाठ",
     "slug": "rudra-path",
-    "artist": "Traditional",
-    "tags": ["hindu", "mantra", "shiva"],
-    "audioSrc": "/rudra.mp3",
-    "srtUrl": "/rudra.srt"
+    "artist": "श्रेयस गुरुजी",
+    "tags": [
+      "hindu",
+      "mantra",
+      "shiva"
+    ],
+    "audioSrc": "/rudra/rudra.mp3",
+    "srtUrl": "/rudra/rudra.srt"
+  },
+  {
+    "id": 2,
+    "title": "पुरुष सूक्त",
+    "slug": "purush-sukta",
+    "artist": "श्रेयस गुरुजी",
+    "tags": [
+      "hindu",
+      "mantra",
+      "shiva"
+    ],
+    "audioSrc": "/purushasuktam/purushsukta.mp3",
+    "srtUrl": "/purushasuktam/purushsukta.srt"
   }
 ]
