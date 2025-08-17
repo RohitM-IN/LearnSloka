@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
-import { FaPlay, FaRedo, FaStop, FaPause } from "react-icons/fa";
+import { FaPlay, FaRedo, FaStop, FaPause, FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { parseSRT, type SRTSubtitle } from "../utils/parser";
 
 interface Segment {
@@ -658,12 +658,20 @@ export const Player: React.FC<PlayerProps> = ({
       </div>
       {/* Controls Toggle Button - Mobile Only */}
       <div className="bg-spotify-gray py-1 px-2 md:hidden">
-        <div className="container mx-auto text-center">
+        <div className="container mx-auto text-center justify-center flex">
           <button
             onClick={() => setShowControls(!showControls)}
-            className="text-spotify-subtext text-sm hover:text-white transition-colors"
+            className="text-spotify-subtext text-sm hover:text-white transition-colors flex items-center"
           >
-            {showControls ? 'Hide Controls' : 'Show Controls'}
+            {showControls ? (
+              <>
+                <FaChevronUp className="mr-1" /> Hide Controls
+              </>
+            ) : (
+              <>
+                <FaChevronDown className="mr-1" /> Show Controls
+              </>
+            )}
           </button>
         </div>
       </div>

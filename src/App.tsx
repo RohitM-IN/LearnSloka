@@ -1,6 +1,8 @@
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { Player } from "./components/Player";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { App as CapacitorApp } from '@capacitor/app';
+import type { PluginListenerHandle } from '@capacitor/core';
 
 interface Song {
   id: number;
@@ -25,13 +27,13 @@ function App() {
   };
 
   // Update URL when song changes
-  const updateUrl = (song: Song | null) => {
+  const updateUrl = useCallback((song: Song | null) => {
     if (song) {
       window.history.pushState({}, '', `/song/${song.slug}`);
     } else {
       window.history.pushState({}, '', '/');
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetch('/songs.json')
@@ -61,10 +63,10 @@ function App() {
     updateUrl(song);
   };
 
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setCurrentSong(null);
     updateUrl(null);
-  };
+  }, [updateUrl]);
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -86,6 +88,29 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [songs]);
 
+  // Capacitor back button listener
+  useEffect(() => {
+    let backButtonListener: PluginListenerHandle | null = null;
+
+    const setupListener = async () => {
+      backButtonListener = await CapacitorApp.addListener('backButton', () => {
+        if (currentSong) {
+          handleBackToList();
+        } else {
+          CapacitorApp.exitApp();
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (backButtonListener) {
+        backButtonListener.remove();
+      }
+    };
+  }, [currentSong, handleBackToList]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-spotify-black text-white">
@@ -101,24 +126,24 @@ function App() {
           <div className="container mx-auto">
             {/* Mobile Header */}
             <div className="md:hidden">
-              <div className="relative">
-                <button
-                  onClick={handleBackToList}
-                  className="text-green-500 hover:text-green-400 mr-2 absolute top-1"
-                >
-                  <IoMdArrowRoundBack />
-                </button>
-                <div className="flex justify-center items-center">
-                  <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
-                </div>
-
+              <div className="flex justify-center items-center">
+                <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
               </div>
             </div>
             <div className="md:hidden">
               <div className="flex flex-col space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center relative">
                   <div className="flex items-center">
-                    <span className="text-lg font-bold text-green-500">{currentSong?.title}</span>
+                    <button
+                      onClick={handleBackToList}
+                      className="hover:text-green-400 mr-2"
+                    >
+                      <IoMdArrowRoundBack />
+                    </button>
+                      <div className="flex items-center">
+                        <span className="text-lg font-bold text-green-500">{currentSong?.title}</span>
+                      </div>
+
                   </div>
                   <div className="text-xs text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
                     <span className="font-semibold">Rohit Sopan Mahajan</span>
