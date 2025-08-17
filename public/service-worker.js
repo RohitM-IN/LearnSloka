@@ -1,4 +1,4 @@
-const CACHE_NAME = "shlokpatham-cache-v8"; // Incremented cache version
+const CACHE_NAME = "shlokpatham-cache-v9"; // Incremented cache version
 const MP3_ASSETS = [
   "/rudra/rudra.mp3",
   "/purushasuktam/purushsukta.mp3"
@@ -6,7 +6,15 @@ const MP3_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(MP3_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        MP3_ASSETS.map((asset) =>
+          cache.add(asset).catch((err) => {
+            console.error(`Failed to cache ${asset}:`, err);
+          })
+        )
+      );
+    })
   );
   self.skipWaiting(); // Force the waiting service worker to become active
 });
