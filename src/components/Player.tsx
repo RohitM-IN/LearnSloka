@@ -1,7 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaChevronUp, FaPause, FaPlay, FaRedo, FaStop } from "react-icons/fa";
-import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle } from "../utils/parser";
+import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle, type SRTTitle } from "../utils/parser";
+import SegmentItem from "./SegmentItem";
 
 
 interface PlayerProps {
@@ -168,7 +169,7 @@ export const Player: React.FC<PlayerProps> = ({
     savePosition();
   };
 
-  const toggleSegmentRepeat = (index: number) => {
+  const toggleSegmentRepeat = useCallback((index: number) => {
     setSegmentRepeat(prev => {
       const current = prev[index] || 'default';
       let next: 'default' | 'twice' | 'infinite' = 'default';
@@ -186,10 +187,10 @@ export const Player: React.FC<PlayerProps> = ({
         [index]: next
       };
     });
-  };
+  },[]);
 
 
-  const handleSegmentClick = (index: number) => {
+  const handleSegmentClick = useCallback((index: number) => {
     // Hide controls when clicking on a segment
     setShowControls(false);
     // If clicking on the same segment that's currently playing, pause it
@@ -212,7 +213,7 @@ export const Player: React.FC<PlayerProps> = ({
       // If not playing, just start the clicked segment
       handlePlay(index);
     }
-  };
+  },[]);
 
   const handlePlayButton = () => {
     // Try to continue from saved position first
@@ -245,27 +246,28 @@ export const Player: React.FC<PlayerProps> = ({
     handlePlay(0);
   };
 
-  const getCurrentSegmentProgress = () => {
-    if (currentIndex >= 0 && currentIndex < blocks.length && audioTime > 0) {
-      const block = blocks[currentIndex];
+  // const getCurrentSegmentProgress = () => {
+  //   if (currentIndex >= 0 && currentIndex < blocks.length && audioTime > 0) {
+  //     const block = blocks[currentIndex];
 
-      // Type guard: only process blocks that have start & end
-      if ("start" in block && "end" in block) {
-        const segmentDuration = block.end - block.start;
-        const elapsedTime = Math.max(0, audioTime - block.start);
-        const progress = (elapsedTime / segmentDuration) * 100;
-        return Math.max(0, Math.min(100, progress));
-      }
-    }
+  //     // Type guard: only process blocks that have start & end
+  //     if (block.type === 'line') {
+  //       return (block.end - block.start) / playbackSpeed;
+  //       // const segmentDuration = block.end - block.start;
+  //       // const elapsedTime = Math.max(0, audioTime - block.start);
+  //       // const progress = (elapsedTime / segmentDuration) * 100;
+  //       // return Math.max(0, Math.min(100, progress));
+  //     }
+  //   }
 
-    return 0;
-  };
+  //   return 0;
+  // };
 
-  const formatTime = (time: number) => {
+  const formatTime = useCallback((time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  },[]);
 
   // Auto-scroll to current segment
   useEffect(() => {
@@ -289,206 +291,72 @@ export const Player: React.FC<PlayerProps> = ({
   }, [currentIndex, isPlaying]);
 
   useEffect(() => {
-    if (isPlaying && currentIndex >= 0 && currentIndex < blocks.length) {
+    if (!isPlaying || currentIndex < 0 || currentIndex >= blocks.length) return;
 
-      const block = blocks[currentIndex];
-      if (!isSubtitleBlock(block)) {
-        setCurrentIndex(currentIndex + 1);
-      }
+    const block = blocks[currentIndex];
 
-      const { start, end } = blocks[currentIndex] as SRTSubtitle;
-
-      // Only set the start time when changing blocks or starting playback
-      if (audioRef.current && currentRepeat === 0 && (!audioRef.current.currentTime || audioRef.current.currentTime < start || audioRef.current.currentTime > end)) {
-        audioRef.current.currentTime = start;
-        audioRef.current.playbackRate = playbackSpeed;
-        audioRef.current.play();
-      }
-
-      // Set up interval to check audio time and advance blocks
-      intervalRef.current = setInterval(() => {
-        if (audioRef.current) {
-          const currentTime = audioRef.current.currentTime;
-          setAudioTime(currentTime);
-          savePosition(); // Save position every 100ms
-
-          // Check if we need to advance to next segment
-          if (currentTime >= end) {
-            // Check for per-segment repeat settings
-            const segmentRepeatSetting = segmentRepeat[currentIndex] || 'default';
-            if (segmentRepeatSetting === 'infinite') {
-              // Infinite repeat - just reset to start
-              if (audioRef.current) {
-                audioRef.current.currentTime = start;
-                audioRef.current.playbackRate = playbackSpeed;
-                audioRef.current.play();
-              }
-            } else if (segmentRepeatSetting === 'twice') {
-              // Repeat twice - one additional time
-              if (currentRepeat < 1) {
-                setCurrentRepeat(currentRepeat + 1);
-                if (audioRef.current) {
-                  audioRef.current.currentTime = start;
-                  audioRef.current.playbackRate = playbackSpeed;
-                  audioRef.current.play();
-                }
-              } else {
-                // Move to next segment after playing twice
-                if (currentIndex + 1 < blocks.length) {
-                  setCurrentIndex(currentIndex + 1);
-                  setCurrentRepeat(0);
-                } else {
-                  // End of all blocks - clear saved data
-                  clearSavedPosition();
-                  handleStop();
-                }
-              }
-            } else if (enableRepeat && currentRepeat < repeatCount - 1) {
-              // Global repeat setting
-              setCurrentRepeat(currentRepeat + 1);
-              if (audioRef.current) {
-                audioRef.current.currentTime = start;
-                audioRef.current.playbackRate = playbackSpeed;
-                audioRef.current.play();
-              }
-            } else if (currentIndex + 1 < blocks.length) {
-              // Move to next segment
-              setCurrentIndex(currentIndex + 1);
-              setCurrentRepeat(0);
-            } else {
-              // End of all blocks - clear saved data
-              clearSavedPosition();
-              handleStop();
-            }
-          }
-        }
-      }, 50); // Reduced to 50ms for smoother progress updates
+    // Skip non-subtitle blocks automatically
+    if (!isSubtitleBlock(block)) {
+      setCurrentIndex(currentIndex + 1);
+      return;
     }
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+    const { start, end } = block as SRTSubtitle;
+    const duration = (end - start) / playbackSpeed;
+
+    // Start audio at segment start
+    if (audioRef.current) {
+      audioRef.current.currentTime = start;
+      audioRef.current.playbackRate = playbackSpeed;
+      audioRef.current.play();
+    }
+
+    // Start timestamp for animation (used if you want JS-based progress)
+    // const segmentStartTime = performance.now();
+
+    // Schedule segment end handling
+    const timeoutId = setTimeout(() => {
+      const segmentRepeatSetting = segmentRepeat[currentIndex] || 'default';
+
+      if (segmentRepeatSetting === 'infinite') {
+        // Reset to start of this segment
+        if (audioRef.current) audioRef.current.currentTime = start;
+      } else if (segmentRepeatSetting === 'twice') {
+        if (currentRepeat < 1) {
+          setCurrentRepeat(prev => prev + 1);
+          if (audioRef.current) audioRef.current.currentTime = start;
+        } else {
+          // Move to next segment
+          if (currentIndex + 1 < blocks.length) {
+            setCurrentIndex(currentIndex + 1);
+            setCurrentRepeat(0);
+          } else {
+            clearSavedPosition();
+            handleStop();
+          }
+        }
+      } else if (enableRepeat && currentRepeat < repeatCount - 1) {
+        setCurrentRepeat(prev => prev + 1);
+        if (audioRef.current) audioRef.current.currentTime = start;
+      } else if (currentIndex + 1 < blocks.length) {
+        // Move to next segment
+        setCurrentIndex(currentIndex + 1);
+        setCurrentRepeat(0);
+      } else {
+        clearSavedPosition();
+        handleStop();
       }
+    }, duration * 1000);
+
+    // Save current position at the start of segment
+    savePosition();
+
+    return () => {
+      clearTimeout(timeoutId);
     };
   }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, blocks]);
 
-  const visibleblocks = blocks.map((block: SRTBlock, index: number) => {
-
-    if (!isSubtitleBlock(block)) return null;
-
-    const segment = block as SRTSubtitle;
-
-    const isActive = index === currentIndex;
-    const isCompleted = index < currentIndex;
-
-    // Check if this segment is the saved position when not playing
-    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
-    let savedIndex = -1;
-    if (savedPosition && !isPlaying) {
-      try {
-        const { index: savedIdx } = JSON.parse(savedPosition);
-        savedIndex = savedIdx;
-      } catch {
-        // Handle parsing error
-      }
-    }
-    const isSavedPosition = index === savedIndex && !isPlaying;
-
-    return {
-      ...segment,
-      label: (
-        <div
-          ref={(el) => {
-            segmentRefs.current[index] = el;
-          }}
-          className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
-            ? 'bg-green-900 border-l-4 border-green-500'
-            : isCompleted
-              ? 'bg-gray-800'
-              : isSavedPosition
-                ? 'bg-gray-800 border-l-4 border-blue-500'
-                : 'bg-gray-900 hover:bg-gray-800'
-            }`}
-          onClick={() => handleSegmentClick(index)}
-        >
-          <div className="flex flex-col">
-            <div className="flex-1">
-              <p
-                className={`${isActive
-                  ? 'text-green-400 font-semibold'
-                  : isCompleted
-                    ? 'text-gray-400'
-                    : isSavedPosition
-                      ? 'text-blue-400 font-semibold'
-                      : 'text-gray-300'
-                  } whitespace-pre-wrap break-words`}
-                style={{
-                  fontSize: `${fontSize}px`,
-                  lineHeight: '1.6',
-                  fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
-                }}
-              >
-                {segment.text}
-              </p>
-            </div>
-
-            <div className="flex justify-between items-end mt-2">
-              {/* Progress bar for active segment */}
-              {isActive && isPlaying && (
-                <div className="flex-1 mr-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-400">
-                      {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
-                    </span>
-                    {enableRepeat && (
-                      <span className="text-xs text-gray-400">
-                        Repeat: {currentRepeat + 1}/{repeatCount}
-                      </span>
-                    )}
-                    {segmentRepeat[index] === 'twice' && (
-                      <span className="text-xs text-green-500">
-                        2x
-                      </span>
-                    )}
-                    {segmentRepeat[index] === 'infinite' && (
-                      <span className="text-xs text-green-500">
-                        ∞
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5">
-                    <div
-                      className="bg-green-500 h-1.5 rounded-full"
-                      style={{ width: `${getCurrentSegmentProgress()}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-
-              {/* Spacer to maintain consistent width when progress bar is not shown */}
-              {(!isActive || !isPlaying) && <div className="flex-1"></div>}
-
-              {/* Repeat button at bottom right */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSegmentRepeat(index);
-                }}
-                className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
-                  ? 'text-green-500 bg-green-900'
-                  : 'text-gray-500 hover:text-gray-300'
-                  }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      ),
-    };
-  });
+  console.log(blocks)
 
 
   return (
@@ -805,12 +673,43 @@ export const Player: React.FC<PlayerProps> = ({
         className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar scrollbar-thumb-gray-600 scrollbar-track-gray-800"
       >
         <div className="container mx-auto">
-          {visibleblocks.map((segment, index) => (
-            <div key={index} className="mb-2">
-              {segment?.label}
-            </div>
-          ))}
+          {blocks.map((block, index) => {
+            if (!isSubtitleBlock(block) && block.type === 'title') {
+              return (
+                <div key={index} className="segment-item rounded-lg py-1 mb-1 text-center">
+                  <p className="text-gray-400">{(block as SRTTitle).text}</p>
+                </div>
+              );
+            }
+
+            if (isSubtitleBlock(block)) {
+              return (
+                <SegmentItem
+                  key={index}
+                  segment={block}
+                  index={index}
+                  currentIndex={currentIndex}
+                  currentRepeat={currentRepeat}
+                  enableRepeat={enableRepeat}
+                  repeatCount={repeatCount}
+                  segmentRepeat={segmentRepeat}
+                  fontSize={fontSize}
+                  isPlaying={isPlaying}
+                  localStoragePrefix={localStoragePrefix}
+                  audioTime={audioTime}
+                  segmentRefs={segmentRefs}
+                  playbackSpeed={playbackSpeed}
+                  onClick={handleSegmentClick}
+                  toggleSegmentRepeat={toggleSegmentRepeat}
+                  formatTime={formatTime}
+                />
+              );
+            }
+
+            return null;
+          })}
         </div>
+
       </div>
 
       {/* Audio Element */}

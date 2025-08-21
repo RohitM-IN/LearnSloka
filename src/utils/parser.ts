@@ -2,6 +2,7 @@ interface SRTSubtitle {
   id: number;
   start: number; // in seconds
   end: number;   // in seconds
+  seconds: number; // duration in seconds
   text: string;
   type: "line";
 }
@@ -62,8 +63,8 @@ function parseSRT(srtText: string): SRTDocument {
     const start = timeToSeconds(timeMatch[1]);
     const end = timeToSeconds(timeMatch[2]);
     const text = lines.slice(2).join("\n").trim();
-
-    blocks.push({ type: "line", id, start, end, text });
+    const seconds = Number((end - start).toPrecision(3));
+    blocks.push({ type: "line", id, start, end, text, seconds });
   }
 
   return { blocks };
