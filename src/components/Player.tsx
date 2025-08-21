@@ -1,26 +1,21 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState } from "react";
-import { FaPlay, FaRedo, FaStop, FaPause, FaChevronUp, FaChevronDown } from "react-icons/fa";
-import { parseSRT, type SRTSubtitle } from "../utils/parser";
+import { FaChevronDown, FaChevronUp, FaPause, FaPlay, FaRedo, FaStop } from "react-icons/fa";
+import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle } from "../utils/parser";
 
-interface Segment {
-  start: number;
-  end: number;
-  text: string;
-}
 
 interface PlayerProps {
   audioSrc: string;
-  srtUrl : string;
+  srtUrl: string;
   localStoragePrefix: string;
 }
 
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
-  srtUrl ,
+  srtUrl,
   localStoragePrefix
 }) => {
-  const [segments, setSegments] = useState<SRTSubtitle[]>([]);
+  const [blocks, setBlocks] = useState<SRTBlock[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState<number>(0);
@@ -39,12 +34,15 @@ export const Player: React.FC<PlayerProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-    // Load SRT from URL
-    useEffect(() => {
-      fetch(srtUrl)
-        .then((res) => res.text())
-        .then((srt) => setSegments(parseSRT(srt)));
-    }, [srtUrl]);
+  // Load SRT from URL
+  useEffect(() => {
+    fetch(srtUrl)
+      .then((res) => res.text())
+      .then((srt) => {
+        const doc: SRTDocument = parseSRT(srt);
+        setBlocks(doc.blocks);
+      });
+  }, [srtUrl]);
 
 
   // Load saved position on component mount
@@ -196,7 +194,7 @@ export const Player: React.FC<PlayerProps> = ({
     setShowControls(false);
     // If clicking on the same segment that's currently playing, pause it
     if (index === currentIndex) {
-      if(isPlaying)
+      if (isPlaying)
         handlePause();
       else
         handleResume();
@@ -218,7 +216,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handlePlayButton = () => {
     // Try to continue from saved position first
-    if(!isPlaying){
+    if (!isPlaying) {
       handleResume();
     }
     if (hasSavedPosition && !isPlaying) {
@@ -248,13 +246,18 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   const getCurrentSegmentProgress = () => {
-    if (currentIndex >= 0 && currentIndex < segments.length && audioTime > 0) {
-      const { start, end } = segments[currentIndex];
-      const segmentDuration = end - start;
-      const elapsedTime = Math.max(0, audioTime - start);
-      const progress = (elapsedTime / segmentDuration) * 100;
-      return Math.max(0, Math.min(100, progress));
+    if (currentIndex >= 0 && currentIndex < blocks.length && audioTime > 0) {
+      const block = blocks[currentIndex];
+
+      // Type guard: only process blocks that have start & end
+      if ("start" in block && "end" in block) {
+        const segmentDuration = block.end - block.start;
+        const elapsedTime = Math.max(0, audioTime - block.start);
+        const progress = (elapsedTime / segmentDuration) * 100;
+        return Math.max(0, Math.min(100, progress));
+      }
     }
+
     return 0;
   };
 
@@ -286,17 +289,23 @@ export const Player: React.FC<PlayerProps> = ({
   }, [currentIndex, isPlaying]);
 
   useEffect(() => {
-    if (isPlaying && currentIndex >= 0 && currentIndex < segments.length) {
-      const { start, end } = segments[currentIndex];
+    if (isPlaying && currentIndex >= 0 && currentIndex < blocks.length) {
 
-      // Only set the start time when changing segments or starting playback
+      const block = blocks[currentIndex];
+      if (!isSubtitleBlock(block)) {
+        setCurrentIndex(currentIndex + 1);
+      }
+
+      const { start, end } = blocks[currentIndex] as SRTSubtitle;
+
+      // Only set the start time when changing blocks or starting playback
       if (audioRef.current && currentRepeat === 0 && (!audioRef.current.currentTime || audioRef.current.currentTime < start || audioRef.current.currentTime > end)) {
         audioRef.current.currentTime = start;
         audioRef.current.playbackRate = playbackSpeed;
         audioRef.current.play();
       }
 
-      // Set up interval to check audio time and advance segments
+      // Set up interval to check audio time and advance blocks
       intervalRef.current = setInterval(() => {
         if (audioRef.current) {
           const currentTime = audioRef.current.currentTime;
@@ -325,11 +334,11 @@ export const Player: React.FC<PlayerProps> = ({
                 }
               } else {
                 // Move to next segment after playing twice
-                if (currentIndex + 1 < segments.length) {
+                if (currentIndex + 1 < blocks.length) {
                   setCurrentIndex(currentIndex + 1);
                   setCurrentRepeat(0);
                 } else {
-                  // End of all segments - clear saved data
+                  // End of all blocks - clear saved data
                   clearSavedPosition();
                   handleStop();
                 }
@@ -342,12 +351,12 @@ export const Player: React.FC<PlayerProps> = ({
                 audioRef.current.playbackRate = playbackSpeed;
                 audioRef.current.play();
               }
-            } else if (currentIndex + 1 < segments.length) {
+            } else if (currentIndex + 1 < blocks.length) {
               // Move to next segment
               setCurrentIndex(currentIndex + 1);
               setCurrentRepeat(0);
             } else {
-              // End of all segments - clear saved data
+              // End of all blocks - clear saved data
               clearSavedPosition();
               handleStop();
             }
@@ -361,9 +370,14 @@ export const Player: React.FC<PlayerProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, segments]);
+  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, blocks]);
 
-  const visibleSegments = segments.map((segment: Segment, index: number) => {
+  const visibleblocks = blocks.map((block: SRTBlock, index: number) => {
+
+    if (!isSubtitleBlock(block)) return null;
+
+    const segment = block as SRTSubtitle;
+
     const isActive = index === currentIndex;
     const isCompleted = index < currentIndex;
 
@@ -388,12 +402,12 @@ export const Player: React.FC<PlayerProps> = ({
             segmentRefs.current[index] = el;
           }}
           className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
-              ? 'bg-green-900 border-l-4 border-green-500'
-              : isCompleted
-                ? 'bg-gray-800'
-                : isSavedPosition
-                  ? 'bg-gray-800 border-l-4 border-blue-500'
-                  : 'bg-gray-900 hover:bg-gray-800'
+            ? 'bg-green-900 border-l-4 border-green-500'
+            : isCompleted
+              ? 'bg-gray-800'
+              : isSavedPosition
+                ? 'bg-gray-800 border-l-4 border-blue-500'
+                : 'bg-gray-900 hover:bg-gray-800'
             }`}
           onClick={() => handleSegmentClick(index)}
         >
@@ -401,12 +415,12 @@ export const Player: React.FC<PlayerProps> = ({
             <div className="flex-1">
               <p
                 className={`${isActive
-                    ? 'text-green-400 font-semibold'
-                    : isCompleted
-                      ? 'text-gray-400'
-                      : isSavedPosition
-                        ? 'text-blue-400 font-semibold'
-                        : 'text-gray-300'
+                  ? 'text-green-400 font-semibold'
+                  : isCompleted
+                    ? 'text-gray-400'
+                    : isSavedPosition
+                      ? 'text-blue-400 font-semibold'
+                      : 'text-gray-300'
                   } whitespace-pre-wrap break-words`}
                 style={{
                   fontSize: `${fontSize}px`,
@@ -461,8 +475,8 @@ export const Player: React.FC<PlayerProps> = ({
                   toggleSegmentRepeat(index);
                 }}
                 className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
-                    ? 'text-green-500 bg-green-900'
-                    : 'text-gray-500 hover:text-gray-300'
+                  ? 'text-green-500 bg-green-900'
+                  : 'text-gray-500 hover:text-gray-300'
                   }`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -520,7 +534,7 @@ export const Player: React.FC<PlayerProps> = ({
                   <span className="text-green-500 font-semibold text-sm">{formatTime(audioTime)}</span>
                   {currentIndex >= 0 && (
                     <span className="text-gray-400 text-xs ml-1">
-                      ({currentIndex + 1}/{segments.length})
+                      ({currentIndex + 1}/{blocks.length})
                     </span>
                   )}
                 </div>
@@ -572,8 +586,8 @@ export const Player: React.FC<PlayerProps> = ({
                 <button
                   onClick={() => setEnableRepeat(!enableRepeat)}
                   className={`px-3 py-1 rounded-full text-sm font-medium ${enableRepeat
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
                 >
                   {enableRepeat ? 'ON' : 'OFF'}
@@ -605,8 +619,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
                     disabled={playbackSpeed <= 0.25}
                     className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed <= 0.25
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     -
@@ -616,8 +630,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
                     disabled={playbackSpeed >= 2}
                     className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed >= 2
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     +
@@ -633,8 +647,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
                     disabled={fontSize <= 14}
                     className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize <= 14
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     A-
@@ -644,8 +658,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
                     disabled={fontSize >= 32}
                     className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize >= 32
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     A+
@@ -688,8 +702,8 @@ export const Player: React.FC<PlayerProps> = ({
                   <button
                     onClick={() => setEnableRepeat(!enableRepeat)}
                     className={`px-2 py-1 rounded-full text-xs font-medium ${enableRepeat
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-700 text-gray-300'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-700 text-gray-300'
                       }`}
                   >
                     {enableRepeat ? 'ON' : 'OFF'}
@@ -722,8 +736,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
                     disabled={playbackSpeed <= 0.25}
                     className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed <= 0.25
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     -
@@ -733,8 +747,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
                     disabled={playbackSpeed >= 2}
                     className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed >= 2
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     +
@@ -750,8 +764,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
                     disabled={fontSize <= 14}
                     className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize <= 14
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     A-
@@ -761,8 +775,8 @@ export const Player: React.FC<PlayerProps> = ({
                     onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
                     disabled={fontSize >= 32}
                     className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize >= 32
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                      ? 'bg-gray-700 text-gray-500'
+                      : 'bg-gray-700 hover:bg-gray-600 text-white'
                       }`}
                   >
                     A+
@@ -785,15 +799,15 @@ export const Player: React.FC<PlayerProps> = ({
           </div>
         </div>
       )}
-      {/* Segments List */}
+      {/* blocks List */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar scrollbar-thumb-gray-600 scrollbar-track-gray-800"
       >
         <div className="container mx-auto">
-          {visibleSegments.map((segment, index) => (
+          {visibleblocks.map((segment, index) => (
             <div key={index} className="mb-2">
-              {segment.label}
+              {segment?.label}
             </div>
           ))}
         </div>
