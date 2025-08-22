@@ -1,26 +1,20 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useRef, useState } from "react";
-import { FaPlay, FaRedo, FaStop, FaPause, FaChevronUp, FaChevronDown } from "react-icons/fa";
-import { parseSRT, type SRTSubtitle } from "../utils/parser";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle } from "../utils/parser";
+import type { PlayerProps } from "../@types/player";
+import { MainControls } from "./MainControls";
+import { DesktopControls } from "./DesktopControls";
+import { MobileControls } from "./MobileControls";
+import { ContinueModal } from "./ContinueModel";
+import { SegmentList } from "./SegmentList";
 
-interface Segment {
-  start: number;
-  end: number;
-  text: string;
-}
-
-interface PlayerProps {
-  audioSrc: string;
-  srtUrl : string;
-  localStoragePrefix: string;
-}
 
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
-  srtUrl ,
+  srtUrl,
   localStoragePrefix
 }) => {
-  const [segments, setSegments] = useState<SRTSubtitle[]>([]);
+  const [blocks, setBlocks] = useState<SRTBlock[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState<number>(0);
@@ -34,18 +28,34 @@ export const Player: React.FC<PlayerProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showControls, setShowControls] = useState<boolean>(false);
   const [segmentRepeat, setSegmentRepeat] = useState<{ [key: number]: 'default' | 'twice' | 'infinite' }>({});
+  const [animationStartTime, setAnimationStartTime] = useState<number | null>(null);
+  const [pausedProgress, setPausedProgress] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-    // Load SRT from URL
-    useEffect(() => {
-      fetch(srtUrl)
-        .then((res) => res.text())
-        .then((srt) => setSegments(parseSRT(srt)));
-    }, [srtUrl]);
-
+  // Load SRT from URL
+  useEffect(() => {
+    let isMounted = true;
+    fetch(srtUrl)
+      .then((res) => res.text())
+      .then((srt) => {
+        if (isMounted) {
+          const doc: SRTDocument = parseSRT(srt);
+          setBlocks(doc.blocks);
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          console.error('Error loading SRT:', error);
+        }
+      });
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [srtUrl]);
 
   // Load saved position on component mount
   useEffect(() => {
@@ -109,6 +119,8 @@ export const Player: React.FC<PlayerProps> = ({
     setCurrentIndex(startIndex);
     setIsPlaying(true);
     setCurrentRepeat(0);
+    setAnimationStartTime(Date.now());
+    setPausedProgress(0);
 
     // Clear saved data if starting from first line
     if (startIndex === 0) {
@@ -120,6 +132,10 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handlePause = () => {
     setIsPlaying(false);
+    // Save current progress when pausing
+    const currentProgress = getCurrentSegmentProgress();
+    setPausedProgress(currentProgress);
+    
     if (audioRef.current) {
       audioRef.current.pause();
     }
@@ -130,6 +146,8 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handleResume = () => {
     setIsPlaying(true);
+    setAnimationStartTime(Date.now());
+    
     if (audioRef.current) {
       audioRef.current.play();
     }
@@ -140,6 +158,9 @@ export const Player: React.FC<PlayerProps> = ({
     setCurrentIndex(-1);
     setAudioTime(0);
     setCurrentRepeat(0);
+    setAnimationStartTime(null);
+    setPausedProgress(0);
+    
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -190,13 +211,12 @@ export const Player: React.FC<PlayerProps> = ({
     });
   };
 
-
   const handleSegmentClick = (index: number) => {
     // Hide controls when clicking on a segment
     setShowControls(false);
     // If clicking on the same segment that's currently playing, pause it
     if (index === currentIndex) {
-      if(isPlaying)
+      if (isPlaying)
         handlePause();
       else
         handleResume();
@@ -218,7 +238,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handlePlayButton = () => {
     // Try to continue from saved position first
-    if(!isPlaying){
+    if (!isPlaying) {
       handleResume();
     }
     if (hasSavedPosition && !isPlaying) {
@@ -248,14 +268,39 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   const getCurrentSegmentProgress = () => {
-    if (currentIndex >= 0 && currentIndex < segments.length && audioTime > 0) {
-      const { start, end } = segments[currentIndex];
-      const segmentDuration = end - start;
-      const elapsedTime = Math.max(0, audioTime - start);
-      const progress = (elapsedTime / segmentDuration) * 100;
-      return Math.max(0, Math.min(100, progress));
+    if (currentIndex >= 0 && currentIndex < blocks.length && audioTime > 0) {
+      const block = blocks[currentIndex];
+
+      // Type guard: only process blocks that have start & end
+      if ("start" in block && "end" in block) {
+        const segmentDuration = block.end - block.start;
+        const elapsedTime = Math.max(0, audioTime - block.start);
+        const progress = Math.min(100, Math.max(0, (elapsedTime / segmentDuration) * 100));
+        return progress;
+      }
     }
+
     return 0;
+  };
+
+  const getSmoothProgress = () => {
+    if (!isPlaying || currentIndex < 0 || currentIndex >= blocks.length) {
+      return getCurrentSegmentProgress();
+    }
+
+    const block = blocks[currentIndex];
+    if (!("start" in block && "end" in block)) {
+      return 0;
+    }
+
+    const segmentDuration = block.end - block.start;
+    const elapsedTime = Math.max(0, audioTime - block.start);
+    
+    // Use a smoother calculation that reduces jitter
+    const progress = Math.min(100, Math.max(0, (elapsedTime / segmentDuration) * 100));
+    
+    // Round to reduce micro-movements and create smoother animation
+    return Math.round(progress * 4) / 4; // Round to nearest 0.25%
   };
 
   const formatTime = (time: number) => {
@@ -273,30 +318,60 @@ export const Player: React.FC<PlayerProps> = ({
       if (currentElement && container) {
         const elementRect = currentElement.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
+        
+        // Calculate available viewport height, considering modal if open
+        const modalHeight = showControls ? 350 : 0; // Modal height including padding
+        const availableBottom = containerRect.bottom - modalHeight;
+        const buffer = 20; // Extra space above modal
 
-        // Check if element is not fully visible
-        if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
-          currentElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-          });
+        // Check if element would be hidden by modal or not fully visible
+        const isHiddenByModal = elementRect.bottom > (availableBottom - buffer);
+        const isAboveViewport = elementRect.top < containerRect.top;
+
+        if (isAboveViewport || isHiddenByModal) {
+          if (showControls) {
+            // When modal is open, scroll so element is in upper part of visible area
+            const targetY = containerRect.top + 50; // Position near top of visible area
+            const elementRect = currentElement.getBoundingClientRect();
+            const currentY = elementRect.top;
+            const offset = currentY - targetY;
+            
+            container.scrollBy({
+              top: offset,
+              behavior: 'smooth'
+            });
+          } else {
+            // Normal center scrolling when modal is closed
+            currentElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }
         }
       }
     }
-  }, [currentIndex, isPlaying]);
+  }, [currentIndex, isPlaying, showControls]);
 
   useEffect(() => {
-    if (isPlaying && currentIndex >= 0 && currentIndex < segments.length) {
-      const { start, end } = segments[currentIndex];
+    if (isPlaying && currentIndex >= 0 && currentIndex < blocks.length) {
 
-      // Only set the start time when changing segments or starting playback
+      const block = blocks[currentIndex];
+      if (!isSubtitleBlock(block)) {
+        setCurrentIndex(currentIndex + 1);
+      }
+
+      const { start, end } = blocks[currentIndex] as SRTSubtitle;
+
+      // Only set the start time when changing blocks or starting playback
       if (audioRef.current && currentRepeat === 0 && (!audioRef.current.currentTime || audioRef.current.currentTime < start || audioRef.current.currentTime > end)) {
         audioRef.current.currentTime = start;
         audioRef.current.playbackRate = playbackSpeed;
         audioRef.current.play();
+        setAnimationStartTime(Date.now());
+        setPausedProgress(0);
       }
 
-      // Set up interval to check audio time and advance segments
+      // Set up interval to check audio time and advance blocks
       intervalRef.current = setInterval(() => {
         if (audioRef.current) {
           const currentTime = audioRef.current.currentTime;
@@ -313,6 +388,8 @@ export const Player: React.FC<PlayerProps> = ({
                 audioRef.current.currentTime = start;
                 audioRef.current.playbackRate = playbackSpeed;
                 audioRef.current.play();
+                setAnimationStartTime(Date.now());
+                setPausedProgress(0);
               }
             } else if (segmentRepeatSetting === 'twice') {
               // Repeat twice - one additional time
@@ -322,14 +399,18 @@ export const Player: React.FC<PlayerProps> = ({
                   audioRef.current.currentTime = start;
                   audioRef.current.playbackRate = playbackSpeed;
                   audioRef.current.play();
+                  setAnimationStartTime(Date.now());
+                  setPausedProgress(0);
                 }
               } else {
                 // Move to next segment after playing twice
-                if (currentIndex + 1 < segments.length) {
+                if (currentIndex + 1 < blocks.length) {
                   setCurrentIndex(currentIndex + 1);
                   setCurrentRepeat(0);
+                  setAnimationStartTime(Date.now());
+                  setPausedProgress(0);
                 } else {
-                  // End of all segments - clear saved data
+                  // End of all blocks - clear saved data
                   clearSavedPosition();
                   handleStop();
                 }
@@ -341,19 +422,23 @@ export const Player: React.FC<PlayerProps> = ({
                 audioRef.current.currentTime = start;
                 audioRef.current.playbackRate = playbackSpeed;
                 audioRef.current.play();
+                setAnimationStartTime(Date.now());
+                setPausedProgress(0);
               }
-            } else if (currentIndex + 1 < segments.length) {
+            } else if (currentIndex + 1 < blocks.length) {
               // Move to next segment
               setCurrentIndex(currentIndex + 1);
               setCurrentRepeat(0);
+              setAnimationStartTime(Date.now());
+              setPausedProgress(0);
             } else {
-              // End of all segments - clear saved data
+              // End of all blocks - clear saved data
               clearSavedPosition();
               handleStop();
             }
           }
         }
-      }, 50); // Reduced to 50ms for smoother progress updates
+      }, 100); // Increased to 100ms for smoother progress updates and less jitter
     }
 
     return () => {
@@ -361,121 +446,130 @@ export const Player: React.FC<PlayerProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, segments]);
+  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, blocks]);
 
-  const visibleSegments = segments.map((segment: Segment, index: number) => {
-    const isActive = index === currentIndex;
-    const isCompleted = index < currentIndex;
+  const visibleblocks = useMemo(() => {
+    return blocks.map((block: SRTBlock, index: number) => {
+      if (!isSubtitleBlock(block)) return null;
 
-    // Check if this segment is the saved position when not playing
-    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
-    let savedIndex = -1;
-    if (savedPosition && !isPlaying) {
-      try {
-        const { index: savedIdx } = JSON.parse(savedPosition);
-        savedIndex = savedIdx;
-      } catch {
-        // Handle parsing error
+      const segment = block as SRTSubtitle;
+      const isActive = index === currentIndex;
+      const isCompleted = index < currentIndex;
+
+      // Check if this segment is the saved position when not playing
+      let savedIndex = -1;
+      if (!isPlaying) {
+        const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
+        if (savedPosition) {
+          try {
+            const { index: savedIdx } = JSON.parse(savedPosition);
+            savedIndex = savedIdx;
+          } catch {
+            // Handle parsing error
+          }
+        }
       }
-    }
-    const isSavedPosition = index === savedIndex && !isPlaying;
+      const isSavedPosition = index === savedIndex && !isPlaying;
 
-    return {
-      ...segment,
-      label: (
-        <div
-          ref={(el) => {
-            segmentRefs.current[index] = el;
-          }}
-          className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
+      return {
+        ...segment,
+        label: (
+          <div
+            ref={(el) => {
+              segmentRefs.current[index] = el;
+            }}
+            className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
               ? 'bg-green-900 border-l-4 border-green-500'
               : isCompleted
                 ? 'bg-gray-800'
                 : isSavedPosition
                   ? 'bg-gray-800 border-l-4 border-blue-500'
                   : 'bg-gray-900 hover:bg-gray-800'
-            }`}
-          onClick={() => handleSegmentClick(index)}
-        >
-          <div className="flex flex-col">
-            <div className="flex-1">
-              <p
-                className={`${isActive
+              }`}
+            onClick={() => handleSegmentClick(index)}
+          >
+            <div className="flex flex-col">
+              <div className="flex-1">
+                <p
+                  className={`${isActive
                     ? 'text-green-400 font-semibold'
                     : isCompleted
                       ? 'text-gray-400'
                       : isSavedPosition
                         ? 'text-blue-400 font-semibold'
                         : 'text-gray-300'
-                  } whitespace-pre-wrap break-words`}
-                style={{
-                  fontSize: `${fontSize}px`,
-                  lineHeight: '1.6',
-                  fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
-                }}
-              >
-                {segment.text}
-              </p>
-            </div>
+                    } whitespace-pre-wrap break-words`}
+                  style={{
+                    fontSize: `${fontSize}px`,
+                    lineHeight: '1.6',
+                    fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
+                  }}
+                >
+                  {segment.text}
+                </p>
+              </div>
 
-            <div className="flex justify-between items-end mt-2">
-              {/* Progress bar for active segment */}
-              {isActive && isPlaying && (
-                <div className="flex-1 mr-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-400">
-                      {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
-                    </span>
-                    {enableRepeat && (
+              <div className="flex justify-between items-end mt-2">
+                {/* Progress bar for active segment */}
+                {isActive && (
+                  <div className="flex-1 mr-2">
+                    <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-400">
-                        Repeat: {currentRepeat + 1}/{repeatCount}
+                        {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
                       </span>
-                    )}
-                    {segmentRepeat[index] === 'twice' && (
-                      <span className="text-xs text-green-500">
-                        2x
-                      </span>
-                    )}
-                    {segmentRepeat[index] === 'infinite' && (
-                      <span className="text-xs text-green-500">
-                        ∞
-                      </span>
-                    )}
+                      {enableRepeat && (
+                        <span className="text-xs text-gray-400">
+                          Repeat: {currentRepeat + 1}/{repeatCount}
+                        </span>
+                      )}
+                      {segmentRepeat[index] === 'twice' && (
+                        <span className="text-xs text-green-500">
+                          2x
+                        </span>
+                      )}
+                      {segmentRepeat[index] === 'infinite' && (
+                        <span className="text-xs text-green-500">
+                          ∞
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5 relative overflow-hidden">
+                      <div
+                        className="bg-green-500 h-1.5 rounded-full transition-all ease-linear"
+                        style={{ 
+                          width: `${getSmoothProgress()}%`,
+                          transitionDuration: isPlaying ? '100ms' : '200ms'
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5">
-                    <div
-                      className="bg-green-500 h-1.5 rounded-full"
-                      style={{ width: `${getCurrentSegmentProgress()}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/* Spacer to maintain consistent width when progress bar is not shown */}
-              {(!isActive || !isPlaying) && <div className="flex-1"></div>}
+                {/* Spacer to maintain consistent width when progress bar is not shown */}
+                {(!isActive) && <div className="flex-1"></div>}
 
-              {/* Repeat button at bottom right */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSegmentRepeat(index);
-                }}
-                className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
+                {/* Repeat button at bottom right */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSegmentRepeat(index);
+                  }}
+                  className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
                     ? 'text-green-500 bg-green-900'
                     : 'text-gray-500 hover:text-gray-300'
-                  }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                </svg>
-              </button>
+                    }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ),
-    };
-  });
-
+        ),
+      };
+    });
+  }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-spotify-black text-spotify-text">
@@ -483,321 +577,53 @@ export const Player: React.FC<PlayerProps> = ({
       {/* Main Controls - Always Visible */}
       <div className="bg-spotify-gray py-1 px-2">
         <div className="container mx-auto">
-          {/* Mobile Layout */}
-          <div className="md:hidden">
-            <div className="flex justify-center items-center space-x-2">
-              <div>
-                <button
-                  onClick={handleRefreshButton}
-                  disabled={isPlaying}
-                  className={`p-2 rounded-full ${isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  <FaRedo className="text-base" />
-                </button>
-              </div>
-              <div>
-                <button
-                  onClick={handlePlayButton}
-                  //disabled={isPlaying && currentIndex >= 0}
-                  className={`p-2 rounded-full ${isPlaying && currentIndex >= 0 ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  {isPlaying ? <FaPause className="text-base" /> : <FaPlay className="text-base ml-0.5" />}
-                </button>
-              </div>
-              <div>
-                <button
-                  onClick={handleStop}
-                  disabled={!isPlaying}
-                  className={`p-2 rounded-full ${!isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 hover:bg-gray-700 text-white'} transition-colors`}
-                >
-                  <FaStop className="text-base" />
-                </button>
-
-              </div>
-
-              {isPlaying ? (
-                <div className="bg-gray-800 px-2 py-1 rounded-full flex items-center w-32 justify-center">
-                  <span className="text-green-500 font-semibold text-sm">{formatTime(audioTime)}</span>
-                  {currentIndex >= 0 && (
-                    <span className="text-gray-400 text-xs ml-1">
-                      ({currentIndex + 1}/{segments.length})
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="w-32 h-8"></div> // Placeholder to maintain consistent width
-              )}
-            </div>
-          </div>
-
-          {/* Desktop Layout */}
-          <div className="hidden md:flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <div>
-                <button
-                  onClick={handleRefreshButton}
-                  disabled={isPlaying}
-                  className={`p-2 rounded-full ${isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  <FaRedo className="text-base" />
-                </button>
-
-              </div>
-              <div>
-                <button
-                  onClick={handlePlayButton}
-                  //disabled={isPlaying && currentIndex >= 0}
-                  className={`p-2 rounded-full ${isPlaying && currentIndex >= 0 ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  {isPlaying ? <FaPause className="text-base" /> : <FaPlay className="text-base ml-0.5" />}
-                </button>
-
-              </div>
-              <div>
-                <button
-                  onClick={handleStop}
-                  disabled={!isPlaying}
-                  className={`p-2 rounded-full ${!isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 hover:bg-gray-700 text-white'} transition-colors`}
-                >
-                  <FaStop className="text-base" />
-                </button>
-              </div>
-            </div>
-
-            {/* Additional Controls for Desktop */}
-            <div className="flex items-center space-x-6 bg-gray-800 rounded-full px-4 py-2">
-              {/* Repeat Controls */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-300">Repeat:</span>
-                <button
-                  onClick={() => setEnableRepeat(!enableRepeat)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${enableRepeat
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                >
-                  {enableRepeat ? 'ON' : 'OFF'}
-                </button>
-                {enableRepeat && (
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => setRepeatCount(Math.max(1, repeatCount - 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white text-xs"
-                    >
-                      -
-                    </button>
-                    <span className="text-sm text-gray-300 w-6 text-center">{repeatCount}</span>
-                    <button
-                      onClick={() => setRepeatCount(Math.min(10, repeatCount + 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white text-xs"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Speed Controls */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-300">Speed:</span>
-                <div className="flex items-center space-x-1">
-                  <button
-                    onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
-                    disabled={playbackSpeed <= 0.25}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed <= 0.25
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    -
-                  </button>
-                  <span className="text-sm text-gray-300 w-10 text-center">{playbackSpeed}x</span>
-                  <button
-                    onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
-                    disabled={playbackSpeed >= 2}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed >= 2
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Font Size Controls */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-300">Font:</span>
-                <div className="flex items-center space-x-1">
-                  <button
-                    onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
-                    disabled={fontSize <= 14}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize <= 14
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A-
-                  </button>
-                  <span className="text-sm text-gray-300 w-8 text-center">{fontSize}px</span>
-                  <button
-                    onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
-                    disabled={fontSize >= 32}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize >= 32
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-            </div>
+          <MainControls
+            isPlaying={isPlaying}
+            currentIndex={currentIndex}
+            audioTime={audioTime}
+            blocks={blocks}
+            onRefresh={handleRefreshButton}
+            onPlay={handlePlayButton}
+            onStop={handleStop}
+            formatTime={formatTime}
+          />
+          
+          {/* Desktop Controls - Hidden on mobile */}
+          <div className="hidden md:flex justify-end mt-2">
+            <DesktopControls
+              enableRepeat={enableRepeat}
+              repeatCount={repeatCount}
+              playbackSpeed={playbackSpeed}
+              fontSize={fontSize}
+              onRepeatToggle={() => setEnableRepeat(!enableRepeat)}
+              onRepeatCountChange={setRepeatCount}
+              onSpeedChange={handleSpeedChange}
+              onFontSizeChange={handleFontSizeChange}
+            />
           </div>
         </div>
       </div>
-      {/* Controls Toggle Button - Mobile Only */}
-      <div className="bg-spotify-gray py-1 px-2 md:hidden">
-        <div className="container mx-auto text-center justify-center flex">
-          <button
-            onClick={() => setShowControls(!showControls)}
-            className="text-spotify-subtext text-sm hover:text-white transition-colors flex items-center"
-          >
-            {showControls ? (
-              <>
-                <FaChevronUp className="mr-1" /> Hide Controls
-              </>
-            ) : (
-              <>
-                <FaChevronDown className="mr-1" /> Show Controls
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      {/* Controls */}
-      {showControls && (
-        <div className="bg-spotify-gray p-2 md:hidden">
-          <div className="container mx-auto">
-            {/* Mobile Controls */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Repeat Controls */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Repeat</span>
-                  <button
-                    onClick={() => setEnableRepeat(!enableRepeat)}
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${enableRepeat
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-700 text-gray-300'
-                      }`}
-                  >
-                    {enableRepeat ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-                {enableRepeat && (
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => setRepeatCount(Math.max(1, repeatCount - 1))}
-                      className="w-7 h-7 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white"
-                    >
-                      -
-                    </button>
-                    <span className="text-sm">{repeatCount}</span>
-                    <button
-                      onClick={() => setRepeatCount(Math.min(10, repeatCount + 1))}
-                      className="w-7 h-7 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
-              </div>
 
-              {/* Speed Controls */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="text-sm font-medium mb-2">Speed</div>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
-                    disabled={playbackSpeed <= 0.25}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed <= 0.25
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    -
-                  </button>
-                  <span className="text-sm">{playbackSpeed}x</span>
-                  <button
-                    onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
-                    disabled={playbackSpeed >= 2}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed >= 2
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+      {/* Mobile Controls */}
+      <MobileControls
+        showControls={showControls}
+        enableRepeat={enableRepeat}
+        repeatCount={repeatCount}
+        playbackSpeed={playbackSpeed}
+        fontSize={fontSize}
+        isPlaying={isPlaying}
+        onToggleControls={() => setShowControls(!showControls)}
+        onRepeatToggle={() => setEnableRepeat(!enableRepeat)}
+        onRepeatCountChange={setRepeatCount}
+        onSpeedChange={handleSpeedChange}
+        onFontSizeChange={handleFontSizeChange}
+      />
 
-              {/* Font Size Controls */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="text-sm font-medium mb-2">Font Size</div>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
-                    disabled={fontSize <= 14}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize <= 14
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A-
-                  </button>
-                  <span className="text-sm">{fontSize}px</span>
-                  <button
-                    onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
-                    disabled={fontSize >= 32}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize >= 32
-                        ? 'bg-gray-700 text-gray-500'
-                        : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-
-              {/* Status Display */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="text-sm font-medium mb-2">Status</div>
-                <div className="text-center">
-                  {isPlaying ? (
-                    <span className="text-green-500 text-sm">Playing</span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">Stopped</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Segments List */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto py-2 px-2 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar scrollbar-thumb-gray-600 scrollbar-track-gray-800"
-      >
-        <div className="container mx-auto">
-          {visibleSegments.map((segment, index) => (
-            <div key={index} className="mb-2">
-              {segment.label}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Segment List */}
+      <SegmentList
+        visibleblocks={visibleblocks}
+        scrollContainerRef={scrollContainerRef}
+      />
 
       {/* Audio Element */}
       <audio
@@ -809,30 +635,11 @@ export const Player: React.FC<PlayerProps> = ({
       />
 
       {/* Continue Modal */}
-      {showContinueModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4">Continue from where you left off?</h3>
-            <p className="text-gray-300 mb-6">
-              We found your last played position. Would you like to continue from where you left off or start fresh?
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={handleStartFresh}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md font-medium transition-colors"
-              >
-                Start Fresh
-              </button>
-              <button
-                onClick={handleContinue}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md font-medium transition-colors"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ContinueModal
+        showContinueModal={showContinueModal}
+        onContinue={handleContinue}
+        onStartFresh={handleStartFresh}
+      />
     </div>
   );
 };
