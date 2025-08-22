@@ -1,14 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { FaChevronDown, FaChevronUp, FaPause, FaPlay, FaRedo, FaStop } from "react-icons/fa";
 import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle } from "../utils/parser";
+import type { PlayerProps } from "../@types/player";
+import { MainControls } from "./MainControls";
+import { DesktopControls } from "./DesktopControls";
+import { MobileControls } from "./MobileControls";
+import { ContinueModal } from "./ContinueModel";
+import { SegmentList } from "./SegmentList";
 
-
-interface PlayerProps {
-  audioSrc: string;
-  srtUrl: string;
-  localStoragePrefix: string;
-}
 
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
@@ -57,7 +56,6 @@ export const Player: React.FC<PlayerProps> = ({
       isMounted = false;
     };
   }, [srtUrl]);
-
 
   // Load saved position on component mount
   useEffect(() => {
@@ -212,7 +210,6 @@ export const Player: React.FC<PlayerProps> = ({
       };
     });
   };
-
 
   const handleSegmentClick = (index: number) => {
     // Hide controls when clicking on a segment
@@ -552,328 +549,59 @@ export const Player: React.FC<PlayerProps> = ({
     });
   }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress]);
 
-
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-spotify-black text-spotify-text">
 
       {/* Main Controls - Always Visible */}
       <div className="bg-spotify-gray py-1 px-2">
         <div className="container mx-auto">
-          {/* Mobile Layout */}
-          <div className="md:hidden">
-            <div className="flex justify-center items-center space-x-2">
-              <div>
-                <button
-                  onClick={handleRefreshButton}
-                  disabled={isPlaying}
-                  className={`p-2 rounded-full ${isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  <FaRedo className="text-base" />
-                </button>
-              </div>
-              <div>
-                <button
-                  onClick={handlePlayButton}
-                  //disabled={isPlaying && currentIndex >= 0}
-                  className={`p-2 rounded-full ${isPlaying && currentIndex >= 0 ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  {isPlaying ? <FaPause className="text-base" /> : <FaPlay className="text-base ml-0.5" />}
-                </button>
-              </div>
-              <div>
-                <button
-                  onClick={handleStop}
-                  disabled={!isPlaying}
-                  className={`p-2 rounded-full ${!isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 hover:bg-gray-700 text-white'} transition-colors`}
-                >
-                  <FaStop className="text-base" />
-                </button>
-
-              </div>
-
-              {isPlaying ? (
-                <div className="bg-gray-800 px-2 py-1 rounded-full flex items-center w-32 justify-center">
-                  <span className="text-green-500 font-semibold text-sm">{formatTime(audioTime)}</span>
-                  {currentIndex >= 0 && (
-                    <span className="text-gray-400 text-xs ml-1">
-                      ({currentIndex + 1}/{blocks.length})
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="w-32 h-8"></div> // Placeholder to maintain consistent width
-              )}
-            </div>
-          </div>
-
-          {/* Desktop Layout */}
-          <div className="hidden md:flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <div>
-                <button
-                  onClick={handleRefreshButton}
-                  disabled={isPlaying}
-                  className={`p-2 rounded-full ${isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  <FaRedo className="text-base" />
-                </button>
-
-              </div>
-              <div>
-                <button
-                  onClick={handlePlayButton}
-                  //disabled={isPlaying && currentIndex >= 0}
-                  className={`p-2 rounded-full ${isPlaying && currentIndex >= 0 ? 'bg-gray-700 text-gray-500' : 'bg-green-500 hover:bg-green-600 text-white'} transition-colors`}
-                >
-                  {isPlaying ? <FaPause className="text-base" /> : <FaPlay className="text-base ml-0.5" />}
-                </button>
-
-              </div>
-              <div>
-                <button
-                  onClick={handleStop}
-                  disabled={!isPlaying}
-                  className={`p-2 rounded-full ${!isPlaying ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 hover:bg-gray-700 text-white'} transition-colors`}
-                >
-                  <FaStop className="text-base" />
-                </button>
-              </div>
-            </div>
-
-            {/* Additional Controls for Desktop */}
-            <div className="flex items-center space-x-6 bg-gray-800 rounded-full px-4 py-2">
-              {/* Repeat Controls */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-300">Repeat:</span>
-                <button
-                  onClick={() => setEnableRepeat(!enableRepeat)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${enableRepeat
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                >
-                  {enableRepeat ? 'ON' : 'OFF'}
-                </button>
-                {enableRepeat && (
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => setRepeatCount(Math.max(1, repeatCount - 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white text-xs"
-                    >
-                      -
-                    </button>
-                    <span className="text-sm text-gray-300 w-6 text-center">{repeatCount}</span>
-                    <button
-                      onClick={() => setRepeatCount(Math.min(10, repeatCount + 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white text-xs"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Speed Controls */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-300">Speed:</span>
-                <div className="flex items-center space-x-1">
-                  <button
-                    onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
-                    disabled={playbackSpeed <= 0.25}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed <= 0.25
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    -
-                  </button>
-                  <span className="text-sm text-gray-300 w-10 text-center">{playbackSpeed}x</span>
-                  <button
-                    onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
-                    disabled={playbackSpeed >= 2}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${playbackSpeed >= 2
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Font Size Controls */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-300">Font:</span>
-                <div className="flex items-center space-x-1">
-                  <button
-                    onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
-                    disabled={fontSize <= 14}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize <= 14
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A-
-                  </button>
-                  <span className="text-sm text-gray-300 w-8 text-center">{fontSize}px</span>
-                  <button
-                    onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
-                    disabled={fontSize >= 32}
-                    className={`w-6 h-6 flex items-center justify-center rounded-full text-xs ${fontSize >= 32
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-            </div>
+          <MainControls
+            isPlaying={isPlaying}
+            currentIndex={currentIndex}
+            audioTime={audioTime}
+            blocks={blocks}
+            onRefresh={handleRefreshButton}
+            onPlay={handlePlayButton}
+            onStop={handleStop}
+            formatTime={formatTime}
+          />
+          
+          {/* Desktop Controls - Hidden on mobile */}
+          <div className="hidden md:flex justify-end mt-2">
+            <DesktopControls
+              enableRepeat={enableRepeat}
+              repeatCount={repeatCount}
+              playbackSpeed={playbackSpeed}
+              fontSize={fontSize}
+              onRepeatToggle={() => setEnableRepeat(!enableRepeat)}
+              onRepeatCountChange={setRepeatCount}
+              onSpeedChange={handleSpeedChange}
+              onFontSizeChange={handleFontSizeChange}
+            />
           </div>
         </div>
       </div>
-      {/* Controls Toggle Button - Mobile Only */}
-      <div className="bg-spotify-gray py-1 px-2 md:hidden">
-        <div className="container mx-auto text-center justify-center flex">
-          <button
-            onClick={() => setShowControls(!showControls)}
-            className="text-spotify-subtext text-sm hover:text-white transition-colors flex items-center"
-          >
-            {showControls ? (
-              <>
-                <FaChevronUp className="mr-1" /> Hide Controls
-              </>
-            ) : (
-              <>
-                <FaChevronDown className="mr-1" /> Show Controls
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-      {/* Controls */}
-      {showControls && (
-        <div className="bg-spotify-gray p-2 md:hidden">
-          <div className="container mx-auto">
-            {/* Mobile Controls */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Repeat Controls */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Repeat</span>
-                  <button
-                    onClick={() => setEnableRepeat(!enableRepeat)}
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${enableRepeat
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-700 text-gray-300'
-                      }`}
-                  >
-                    {enableRepeat ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-                {enableRepeat && (
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => setRepeatCount(Math.max(1, repeatCount - 1))}
-                      className="w-7 h-7 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white"
-                    >
-                      -
-                    </button>
-                    <span className="text-sm">{repeatCount}</span>
-                    <button
-                      onClick={() => setRepeatCount(Math.min(10, repeatCount + 1))}
-                      className="w-7 h-7 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full text-white"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
-              </div>
 
-              {/* Speed Controls */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="text-sm font-medium mb-2">Speed</div>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => handleSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
-                    disabled={playbackSpeed <= 0.25}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed <= 0.25
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    -
-                  </button>
-                  <span className="text-sm">{playbackSpeed}x</span>
-                  <button
-                    onClick={() => handleSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
-                    disabled={playbackSpeed >= 2}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${playbackSpeed >= 2
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+      {/* Mobile Controls */}
+      <MobileControls
+        showControls={showControls}
+        enableRepeat={enableRepeat}
+        repeatCount={repeatCount}
+        playbackSpeed={playbackSpeed}
+        fontSize={fontSize}
+        isPlaying={isPlaying}
+        onToggleControls={() => setShowControls(!showControls)}
+        onRepeatToggle={() => setEnableRepeat(!enableRepeat)}
+        onRepeatCountChange={setRepeatCount}
+        onSpeedChange={handleSpeedChange}
+        onFontSizeChange={handleFontSizeChange}
+      />
 
-              {/* Font Size Controls */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="text-sm font-medium mb-2">Font Size</div>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => handleFontSizeChange(Math.max(14, fontSize - 2))}
-                    disabled={fontSize <= 14}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize <= 14
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A-
-                  </button>
-                  <span className="text-sm">{fontSize}px</span>
-                  <button
-                    onClick={() => handleFontSizeChange(Math.min(32, fontSize + 2))}
-                    disabled={fontSize >= 32}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${fontSize >= 32
-                      ? 'bg-gray-700 text-gray-500'
-                      : 'bg-gray-700 hover:bg-gray-600 text-white'
-                      }`}
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-
-              {/* Status Display */}
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="text-sm font-medium mb-2">Status</div>
-                <div className="text-center">
-                  {isPlaying ? (
-                    <span className="text-green-500 text-sm">Playing</span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">Stopped</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* blocks List */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto py-2 px-2 scrollbar scrollbar-thumb-gray-600 scrollbar-track-gray-800"
-      >
-        <div className="container mx-auto">
-          {visibleblocks.map((segment, index) => (
-            <div key={index} className="mb-2">
-              {segment?.label}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Segment List */}
+      <SegmentList
+        visibleblocks={visibleblocks}
+        scrollContainerRef={scrollContainerRef}
+      />
 
       {/* Audio Element */}
       <audio
@@ -885,30 +613,11 @@ export const Player: React.FC<PlayerProps> = ({
       />
 
       {/* Continue Modal */}
-      {showContinueModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4">Continue from where you left off?</h3>
-            <p className="text-gray-300 mb-6">
-              We found your last played position. Would you like to continue from where you left off or start fresh?
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={handleStartFresh}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md font-medium transition-colors"
-              >
-                Start Fresh
-              </button>
-              <button
-                onClick={handleContinue}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md font-medium transition-colors"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ContinueModal
+        showContinueModal={showContinueModal}
+        onContinue={handleContinue}
+        onStartFresh={handleStartFresh}
+      />
     </div>
   );
 };
