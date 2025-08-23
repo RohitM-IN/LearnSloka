@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle } from "../utils/parser";
 import type { PlayerProps } from "../@types/player";
 import { MainControls } from "./MainControls";
-import { DesktopControls } from "./DesktopControls";
 import { MobileControls } from "./MobileControls";
 import { ContinueModal } from "./ContinueModel";
 import { SegmentList } from "./SegmentList";
@@ -456,10 +455,10 @@ export const Player: React.FC<PlayerProps> = ({
             ...block,
             label: (
               <div className="segment-title my-4 text-center">
-                <h2 className="font-bold" style={{
+                <h2 className="font-bold text-accent" style={{
                   fontSize: `${Math.min(fontSize + 3, 32)}px`,
                   lineHeight: '1.6',
-                  fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
+                  fontFamily: 'Noto Sans Devanagari, Arial, sans-serif'
                 }}>
                   {block.text}
                 </h2>
@@ -494,12 +493,12 @@ export const Player: React.FC<PlayerProps> = ({
                 segmentRefs.current[index] = el;
               }}
               className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
-                ? 'bg-green-900 border-l-4 border-green-500'
+                ? 'bg-active border-l-4 border-accent'
                 : isCompleted
-                  ? 'bg-gray-800'
+                  ? 'bg-surface'
                   : isSavedPosition
-                    ? 'bg-gray-800 border-l-4 border-blue-500'
-                    : 'bg-gray-900 hover:bg-gray-800'
+                    ? 'bg-surface border-l-4 border-divider'
+                    : 'bg-surface hover:bg-hover'
                 }`}
               onClick={() => handleSegmentClick(index)}
             >
@@ -507,17 +506,17 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className="flex-1">
                   <p
                     className={`${isActive
-                      ? 'text-green-400 font-semibold'
+                      ? 'text-accent font-semibold'
                       : isCompleted
-                        ? 'text-gray-400'
+                        ? 'text-subtext'
                         : isSavedPosition
-                          ? 'text-blue-400 font-semibold'
-                          : 'text-gray-300'
+                          ? 'text-white font-semibold'
+                          : 'text-white'
                       } whitespace-pre-wrap break-words`}
                     style={{
                       fontSize: `${fontSize}px`,
                       lineHeight: '1.6',
-                      fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
+                      fontFamily: 'Noto Sans Devanagari, Arial, sans-serif'
                     }}
                   >
                     {segment.text}
@@ -529,28 +528,28 @@ export const Player: React.FC<PlayerProps> = ({
                   {isActive && (
                     <div className="flex-1 mr-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-subtext">
                           {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
                         </span>
                         {enableRepeat && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-subtext">
                             Repeat: {currentRepeat + 1}/{repeatCount}
                           </span>
                         )}
                         {segmentRepeat[index] === 'twice' && (
-                          <span className="text-xs text-green-500">
+                          <span className="text-xs text-accent">
                             2x
                           </span>
                         )}
                         {segmentRepeat[index] === 'infinite' && (
-                          <span className="text-xs text-green-500">
+                          <span className="text-xs text-accent">
                             ∞
                           </span>
                         )}
                       </div>
-                      <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5 relative overflow-hidden">
+                      <div className="mt-1 w-full bg-base rounded-full h-1.5 relative overflow-hidden">
                         <div
-                          className="bg-green-500 h-1.5 rounded-full transition-all ease-linear"
+                          className="bg-accent h-1.5 rounded-full transition-all ease-linear"
                           style={{ 
                             width: `${getSmoothProgress()}%`,
                             transitionDuration: isPlaying ? '100ms' : '200ms'
@@ -569,9 +568,9 @@ export const Player: React.FC<PlayerProps> = ({
                       e.stopPropagation();
                       toggleSegmentRepeat(index);
                     }}
-                    className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
-                      ? 'text-green-500 bg-green-900'
-                      : 'text-gray-500 hover:text-gray-300'
+                    className={`p-1 rounded-full transition-colors ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
+                      ? 'text-accent bg-active'
+                      : 'text-subtext hover:text-white'
                       }`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -587,36 +586,28 @@ export const Player: React.FC<PlayerProps> = ({
   }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress]);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden bg-spotify-black text-spotify-text">
+    <div className="flex flex-col flex-1 overflow-hidden bg-background text-text">
 
       {/* Main Controls - Always Visible */}
-      <div className="bg-spotify-gray py-1 px-2">
-        <div className="container mx-auto">
-          <MainControls
-            isPlaying={isPlaying}
-            currentIndex={currentIndex}
-            audioTime={audioTime}
-            blocks={blocks}
-            onRefresh={handleRefreshButton}
-            onPlay={handlePlayButton}
-            onStop={handleStop}
-            formatTime={formatTime}
-          />
-          
-          {/* Desktop Controls - Hidden on mobile */}
-          <div className="hidden md:flex justify-end mt-2">
-            <DesktopControls
-              enableRepeat={enableRepeat}
-              repeatCount={repeatCount}
-              playbackSpeed={playbackSpeed}
-              fontSize={fontSize}
-              onRepeatToggle={() => setEnableRepeat(!enableRepeat)}
-              onRepeatCountChange={setRepeatCount}
-              onSpeedChange={handleSpeedChange}
-              onFontSizeChange={handleFontSizeChange}
-            />
-          </div>
-        </div>
+      <div className="container mx-auto">
+        <MainControls
+          isPlaying={isPlaying}
+          currentIndex={currentIndex}
+          audioTime={audioTime}
+          blocks={blocks}
+          onRefresh={handleRefreshButton}
+          onPlay={handlePlayButton}
+          onStop={handleStop}
+          formatTime={formatTime}
+          enableRepeat={enableRepeat}
+          repeatCount={repeatCount}
+          playbackSpeed={playbackSpeed}
+          fontSize={fontSize}
+          onRepeatToggle={() => setEnableRepeat(!enableRepeat)}
+          onRepeatCountChange={setRepeatCount}
+          onSpeedChange={handleSpeedChange}
+          onFontSizeChange={handleFontSizeChange}
+        />
       </div>
 
       {/* Mobile Controls */}

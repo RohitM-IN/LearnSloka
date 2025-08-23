@@ -19,6 +19,14 @@ export interface MainControlsProps {
   onPlay: () => void;
   onStop: () => void;
   formatTime: (time: number) => string;
+  enableRepeat: boolean;
+  repeatCount: number;
+  playbackSpeed: number;
+  fontSize: number;
+  onRepeatToggle: () => void;
+  onRepeatCountChange: (count: number) => void;
+  onSpeedChange: (speed: number) => void;
+  onFontSizeChange: (size: number) => void;
 }
 
 export interface DesktopControlsProps {
