@@ -43,6 +43,7 @@ export const Player: React.FC<PlayerProps> = ({
       .then((srt) => {
         if (isMounted) {
           const doc: SRTDocument = parseSRT(srt);
+          console.log(doc.blocks);
           setBlocks(doc.blocks);
         }
       })
@@ -450,125 +451,139 @@ export const Player: React.FC<PlayerProps> = ({
 
   const visibleblocks = useMemo(() => {
     return blocks.map((block: SRTBlock, index: number) => {
-      if (!isSubtitleBlock(block)) return null;
+      if (!isSubtitleBlock(block)) {
+          return {
+            ...block,
+            label: (
+              <div className="segment-title my-4 text-center">
+                <h2 className="font-bold" style={{
+                  fontSize: `${Math.min(fontSize + 3, 32)}px`,
+                  lineHeight: '1.6',
+                  fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
+                }}>
+                  {block.text}
+                </h2>
+              </div>
+            ),
+          };
+        }
+        const segment = block as SRTSubtitle;
+        const isActive = index === currentIndex;
+        const isCompleted = index < currentIndex;
 
-      const segment = block as SRTSubtitle;
-      const isActive = index === currentIndex;
-      const isCompleted = index < currentIndex;
-
-      // Check if this segment is the saved position when not playing
-      let savedIndex = -1;
-      if (!isPlaying) {
-        const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
-        if (savedPosition) {
-          try {
-            const { index: savedIdx } = JSON.parse(savedPosition);
-            savedIndex = savedIdx;
-          } catch {
-            // Handle parsing error
+        // Check if this segment is the saved position when not playing
+        let savedIndex = -1;
+        if (!isPlaying) {
+          const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
+          if (savedPosition) {
+            try {
+              const { index: savedIdx } = JSON.parse(savedPosition);
+              savedIndex = savedIdx;
+            } catch {
+              // Handle parsing error
+            }
           }
         }
-      }
-      const isSavedPosition = index === savedIndex && !isPlaying;
+        const isSavedPosition = index === savedIndex && !isPlaying;
 
-      return {
-        ...segment,
-        label: (
-          <div
-            ref={(el) => {
-              segmentRefs.current[index] = el;
-            }}
-            className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
-              ? 'bg-green-900 border-l-4 border-green-500'
-              : isCompleted
-                ? 'bg-gray-800'
-                : isSavedPosition
-                  ? 'bg-gray-800 border-l-4 border-blue-500'
-                  : 'bg-gray-900 hover:bg-gray-800'
-              }`}
-            onClick={() => handleSegmentClick(index)}
-          >
-            <div className="flex flex-col">
-              <div className="flex-1">
-                <p
-                  className={`${isActive
-                    ? 'text-green-400 font-semibold'
-                    : isCompleted
-                      ? 'text-gray-400'
-                      : isSavedPosition
-                        ? 'text-blue-400 font-semibold'
-                        : 'text-gray-300'
-                    } whitespace-pre-wrap break-words`}
-                  style={{
-                    fontSize: `${fontSize}px`,
-                    lineHeight: '1.6',
-                    fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
-                  }}
-                >
-                  {segment.text}
-                </p>
-              </div>
+        return {
+          ...segment,
+          label: (
+            <div
+              ref={(el) => {
+                segmentRefs.current[index] = el;
+              }}
+              className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
+                ? 'bg-green-900 border-l-4 border-green-500'
+                : isCompleted
+                  ? 'bg-gray-800'
+                  : isSavedPosition
+                    ? 'bg-gray-800 border-l-4 border-blue-500'
+                    : 'bg-gray-900 hover:bg-gray-800'
+                }`}
+              onClick={() => handleSegmentClick(index)}
+            >
+              <div className="flex flex-col">
+                <div className="flex-1">
+                  <p
+                    className={`${isActive
+                      ? 'text-green-400 font-semibold'
+                      : isCompleted
+                        ? 'text-gray-400'
+                        : isSavedPosition
+                          ? 'text-blue-400 font-semibold'
+                          : 'text-gray-300'
+                      } whitespace-pre-wrap break-words`}
+                    style={{
+                      fontSize: `${fontSize}px`,
+                      lineHeight: '1.6',
+                      fontFamily: 'Noto Sans Devanagari, Arial, sans-serif',
+                    }}
+                  >
+                    {segment.text}
+                  </p>
+                </div>
 
-              <div className="flex justify-between items-end mt-2">
-                {/* Progress bar for active segment */}
-                {isActive && (
-                  <div className="flex-1 mr-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-400">
-                        {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
-                      </span>
-                      {enableRepeat && (
+                <div className="flex justify-between items-end mt-2">
+                  {/* Progress bar for active segment */}
+                  {isActive && (
+                    <div className="flex-1 mr-2">
+                      <div className="flex justify-between items-center">
                         <span className="text-xs text-gray-400">
-                          Repeat: {currentRepeat + 1}/{repeatCount}
+                          {formatTime(audioTime - segment.start)} / {formatTime(segment.end - segment.start)}
                         </span>
-                      )}
-                      {segmentRepeat[index] === 'twice' && (
-                        <span className="text-xs text-green-500">
-                          2x
-                        </span>
-                      )}
-                      {segmentRepeat[index] === 'infinite' && (
-                        <span className="text-xs text-green-500">
-                          ∞
-                        </span>
-                      )}
+                        {enableRepeat && (
+                          <span className="text-xs text-gray-400">
+                            Repeat: {currentRepeat + 1}/{repeatCount}
+                          </span>
+                        )}
+                        {segmentRepeat[index] === 'twice' && (
+                          <span className="text-xs text-green-500">
+                            2x
+                          </span>
+                        )}
+                        {segmentRepeat[index] === 'infinite' && (
+                          <span className="text-xs text-green-500">
+                            ∞
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5 relative overflow-hidden">
+                        <div
+                          className="bg-green-500 h-1.5 rounded-full transition-all ease-linear"
+                          style={{ 
+                            width: `${getSmoothProgress()}%`,
+                            transitionDuration: isPlaying ? '100ms' : '200ms'
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="mt-1 w-full bg-gray-700 rounded-full h-1.5 relative overflow-hidden">
-                      <div
-                        className="bg-green-500 h-1.5 rounded-full transition-all ease-linear"
-                        style={{ 
-                          width: `${getSmoothProgress()}%`,
-                          transitionDuration: isPlaying ? '100ms' : '200ms'
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Spacer to maintain consistent width when progress bar is not shown */}
-                {(!isActive) && <div className="flex-1"></div>}
+                  {/* Spacer to maintain consistent width when progress bar is not shown */}
+                  {(!isActive) && <div className="flex-1"></div>}
 
-                {/* Repeat button at bottom right */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSegmentRepeat(index);
-                  }}
-                  className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
-                    ? 'text-green-500 bg-green-900'
-                    : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                  {/* Repeat button at bottom right */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSegmentRepeat(index);
+                    }}
+                    className={`p-1 rounded-full ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
+                      ? 'text-green-500 bg-green-900'
+                      : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ),
-      };
-    });
+          ),
+        };
+      });
   }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress]);
 
   return (
