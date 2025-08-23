@@ -8,11 +8,11 @@ export const SegmentList: React.FC<SegmentListProps> = ({
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto py-2 px-2 scrollbar scrollbar-thumb-gray-600 scrollbar-track-gray-800"
+      className="flex-1 overflow-y-auto py-2 px-2 scrollbar scrollbar-thumb-base scrollbar-track-surface"
     >
       <div className="container mx-auto">
         {visibleblocks.map((segment, index) => (
-          <div key={index} className="mb-2">
+          <div key={index} className="mb-2 text-white">
             {segment?.label}
           </div>
         ))}
