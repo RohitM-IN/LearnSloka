@@ -233,11 +233,16 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handleSegmentClick = (index: number) => {
     setShowControls(false);
+    // Only call playSegment if currentTime is outside the segment time
+    const block = blocks[index] as SRTSubtitle;
+    const currentSeek = audioRef.current?.howler.seek(id ?? undefined) ?? 0;
     if (index === currentIndex && isPlaying) {
       setIsPlaying(false);
       return;
     }
-    playSegment(index);
+    if (currentSeek < block.start - 0.05 || currentSeek > block.end + 0.05) {
+      playSegment(index);
+    }
 
   };
 
@@ -375,22 +380,23 @@ export const Player: React.FC<PlayerProps> = ({
           const { start, end } = (blocks[currentIndex] as SRTSubtitle);
           if (currentTime >= end) {
             const segmentRepeatSetting = segmentRepeat[currentIndex] || 'default';
+            // Only call playSegment if currentTime is outside the next segment's start
             if (segmentRepeatSetting === 'infinite') {
-              playSegment(currentIndex, 0);
+              if (currentTime > end + 0.05) playSegment(currentIndex, 0);
             } else if (segmentRepeatSetting === 'twice') {
-              if (currentRepeat < 1) {
+              if (currentRepeat < 1 && currentTime > end + 0.05) {
                 playSegment(currentIndex, currentRepeat + 1);
-              } else if (currentIndex + 1 < blocks.length) {
+              } else if (currentIndex + 1 < blocks.length && currentTime > end + 0.05) {
                 playSegment(currentIndex + 1, 0);
-              } else {
+              } else if (currentTime > end + 0.05) {
                 clearSavedPosition();
                 handleStop();
               }
-            } else if (enableRepeat && currentRepeat < repeatCount - 1) {
+            } else if (enableRepeat && currentRepeat < repeatCount - 1 && currentTime > end + 0.05) {
               playSegment(currentIndex, currentRepeat + 1);
-            } else if (currentIndex + 1 < blocks.length) {
+            } else if (currentIndex + 1 < blocks.length && currentTime > end + 0.05) {
               playSegment(currentIndex + 1, 0);
-            } else {
+            } else if (currentTime > end + 0.05) {
               clearSavedPosition();
               handleStop();
             }
