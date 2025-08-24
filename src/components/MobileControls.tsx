@@ -35,7 +35,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
         <div
           className={`absolute inset-0 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
           style={{ 
-            background: 'rgba(0,0,0,0.1)',
+            background: 'rgba(0,0,0,0.5)',
             pointerEvents: showControls ? 'auto' : 'none'
           }}
           onClick={(e) => {
