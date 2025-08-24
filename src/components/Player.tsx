@@ -33,6 +33,7 @@ export const Player: React.FC<PlayerProps> = ({
   const intervalRef = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const manualSeekTimeRef = useRef<number>(0); // Track when manual seeks happen
 
   // Load SRT from URL
   useEffect(() => {
@@ -121,6 +122,60 @@ export const Player: React.FC<PlayerProps> = ({
     setCurrentRepeat(0);
     setAnimationStartTime(Date.now());
     setPausedProgress(0);
+
+    // Immediately seek to the segment's start time
+    if (audioRef.current && blocks[startIndex]) {
+      const { start } = blocks[startIndex] as SRTSubtitle;
+      
+      const performSeek = () => {
+        if (audioRef.current) {
+          // Pause first to ensure clean seeking
+          audioRef.current.pause();
+          
+          // Simple, direct seek approach
+          const onSeeked = () => {
+            // Mark that we just performed a manual seek
+            manualSeekTimeRef.current = Date.now();
+            
+            audioRef.current?.removeEventListener('seeked', onSeeked);
+            
+            // Start playing immediately after seek
+            if (audioRef.current) {
+              audioRef.current.playbackRate = playbackSpeed;
+              audioRef.current.play().catch(e => console.error('Play failed:', e));
+            }
+          };
+          
+          audioRef.current.addEventListener('seeked', onSeeked, { once: true });
+          audioRef.current.currentTime = start;
+        }
+      };
+
+      // Ensure audio is loaded before seeking
+      if (audioRef.current.readyState >= 3) { // HAVE_FUTURE_DATA or higher for better seeking
+        performSeek();
+      } else {
+        // Wait for audio to be ready with more data loaded
+        const onCanPlayThrough = () => {
+          performSeek();
+          audioRef.current?.removeEventListener('canplaythrough', onCanPlayThrough);
+        };
+        audioRef.current.addEventListener('canplaythrough', onCanPlayThrough);
+        
+        // Fallback to canplay if canplaythrough doesn't fire within 2 seconds
+        const fallbackTimeout = setTimeout(() => {
+          if (audioRef.current && audioRef.current.readyState >= 2) {
+            audioRef.current.removeEventListener('canplaythrough', onCanPlayThrough);
+            performSeek();
+          }
+        }, 2000);
+        
+        // Clear timeout when canplaythrough fires
+        audioRef.current.addEventListener('canplaythrough', () => {
+          clearTimeout(fallbackTimeout);
+        }, { once: true });
+      }
+    }
 
     // Clear saved data if starting from first line
     if (startIndex === 0) {
@@ -214,6 +269,7 @@ export const Player: React.FC<PlayerProps> = ({
   const handleSegmentClick = (index: number) => {
     // Hide controls when clicking on a segment
     setShowControls(false);
+    
     // If clicking on the same segment that's currently playing, pause it
     if (index === currentIndex) {
       if (isPlaying)
@@ -363,12 +419,25 @@ export const Player: React.FC<PlayerProps> = ({
       const { start, end } = blocks[currentIndex] as SRTSubtitle;
 
       // Only set the start time when changing blocks or starting playback
-      if (audioRef.current && currentRepeat === 0 && (!audioRef.current.currentTime || audioRef.current.currentTime < start || audioRef.current.currentTime > end)) {
-        audioRef.current.currentTime = start;
-        audioRef.current.playbackRate = playbackSpeed;
-        audioRef.current.play();
-        setAnimationStartTime(Date.now());
-        setPausedProgress(0);
+      // But not if we just manually seeked (allow a small tolerance)
+      if (audioRef.current && currentRepeat === 0) {
+        const currentTime = audioRef.current.currentTime;
+        const timeDiff = Math.abs(currentTime - start);
+        const timeSinceManualSeek = Date.now() - manualSeekTimeRef.current;
+        
+        // Don't auto-seek if we just performed a manual seek within the last 1 second
+        if (timeSinceManualSeek < 1000) {
+          // Skip auto-seeking
+        }
+        // Only seek if we're not already close to the start time (within 0.1 seconds)
+        // This prevents overriding manual seeks
+        else if (!currentTime || currentTime < start - 0.1 || currentTime > end || timeDiff > 0.1) {
+          audioRef.current.currentTime = start;
+          audioRef.current.playbackRate = playbackSpeed;
+          audioRef.current.play();
+          setAnimationStartTime(Date.now());
+          setPausedProgress(0);
+        }
       }
 
       // Set up interval to check audio time and advance blocks
@@ -438,7 +507,7 @@ export const Player: React.FC<PlayerProps> = ({
             }
           }
         }
-      }, 100); // Increased to 100ms for smoother progress updates and less jitter
+      }, 100); // Increased to 500ms for smoother progress updates and less jitter
     }
 
     return () => {

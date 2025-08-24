@@ -20,9 +20,22 @@
     "tags": [
       "hindu",
       "mantra",
-      "shiva"
+      "people"
     ],
     "audioSrc": "/purushasuktam/purushsukta.mp3",
     "srtUrl": "/purushasuktam/purushsukta.srt"
+  },
+  {
+    "id": 3,
+    "title": "श्रीसूक्तम्",
+    "slug": "shri-sukta",
+    "artist": "आचार्य श्रेयस कुह्रेकर",
+    "tags": [
+      "hindu",
+      "mantra",
+      "laxmi"
+    ],
+    "audioSrc": "/shreesukata/shreesukatam.mp3",
+    "srtUrl": "/shreesukata/shreesukatam.srt"
   }
 ]
