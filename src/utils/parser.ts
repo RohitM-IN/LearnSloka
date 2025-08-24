@@ -32,7 +32,6 @@ function timeToSeconds(timeString: string): number {
  * Parses SRT text into SRTDocument (lines + titles)
  */
 function parseSRT(srtText: string): SRTDocument {
-  debugger
   const rawBlocks = srtText.trim().split(/\n\s*\n/);
   const blocks: SRTBlock[] = [];
 
