@@ -26,6 +26,7 @@ export const usePositionPersistence = ({ localStoragePrefix }: UsePositionPersis
         index,
         time
       }));
+    //   console.log(`💾 Position saved: segment ${index} at ${time.toFixed(2)}s`);
       setHasSavedPosition(true);
     }
   };
@@ -44,6 +45,7 @@ export const usePositionPersistence = ({ localStoragePrefix }: UsePositionPersis
 
   const clearSavedPosition = () => {
     localStorage.removeItem(`${localStoragePrefix}_lastPosition`);
+    console.log(`🗑️ Cleared saved position`);
     setHasSavedPosition(false);
   };
 

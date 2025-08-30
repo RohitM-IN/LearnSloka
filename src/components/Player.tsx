@@ -79,6 +79,8 @@ export const Player: React.FC<PlayerProps> = ({
     const block = blocks[index] as SRTSubtitle;
     if (!block || !audioControl.audioRef.current) return;
     
+    console.log(`🎯 Playing segment ${index}: "${block.text.slice(0, 50)}${block.text.length > 50 ? '...' : ''}" (${block.start.toFixed(2)}s - ${block.end.toFixed(2)}s, Repeat: ${repeat ?? 0})`);
+    
     // Only seek if not already at the correct time
     const currentSeek = audioControl.getCurrentTime();
     if (Math.abs(currentSeek - block.start) > 0.05) {
@@ -200,13 +202,17 @@ export const Player: React.FC<PlayerProps> = ({
     const block = blocks[index] as SRTSubtitle;
     const currentSeek = audioControl.getCurrentTime();
     
+    console.log(`👆 Segment ${index} clicked (Current: ${currentIndex}, Playing: ${isPlaying}, Time: ${currentSeek.toFixed(2)}s)`);
+    
     // Handle clicking on the same segment that's currently active
     if (index === currentIndex) {
       if (isPlaying) {
         // If playing, pause it
+        console.log(`⏸️ Pausing current segment ${index}`);
         setIsPlaying(false);
       } else {
         // If paused, resume playback
+        console.log(`▶️ Resuming segment ${index}`);
         setIsPlaying(true);
         setAnimationStartTime(Date.now());
       }
@@ -215,11 +221,16 @@ export const Player: React.FC<PlayerProps> = ({
     
     // For different segments, check if we need to seek
     if (currentSeek < block.start - 0.05 || currentSeek > block.end + 0.05) {
+      console.log(`🎯 Seeking to segment ${index} (outside current time range)`);
       playSegment(index);
+    } else {
+      console.log(`✅ Already within segment ${index} time range - just switching focus`);
     }
   };
 
   const handlePlayButton = () => {
+    console.log(`🎮 Play button clicked (Playing: ${isPlaying}, HasSaved: ${positionPersistence.hasSavedPosition}, FirstTime: ${!hasShownFirstTimePrompt})`);
+    
     // Try to continue from saved position first
     if (!isPlaying) {
       handleResume();
@@ -227,6 +238,7 @@ export const Player: React.FC<PlayerProps> = ({
     if (positionPersistence.hasSavedPosition && !isPlaying) {
       const savedPosition = positionPersistence.getSavedPosition();
       if (savedPosition) {
+        console.log(`📍 Resuming from saved position: segment ${savedPosition.index} at ${savedPosition.time.toFixed(2)}s`);
         handlePlay(savedPosition.index);
         return;
       }
@@ -234,13 +246,16 @@ export const Player: React.FC<PlayerProps> = ({
 
     // If no saved position or already shown prompt, start from first
     if (positionPersistence.hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
+      console.log(`❓ Showing continue modal for saved position`);
       setShowContinueModal(true);
       setHasShownFirstTimePrompt(true);
     }
     else if (!positionPersistence.hasSavedPosition && !isPlaying) {
+      console.log(`🆕 Starting fresh playback from beginning`);
       handlePlay(0);
       setHasShownFirstTimePrompt(true);
     } else {
+      console.log(`⏸️ Pausing current playback`);
       handlePause();
     }
   };
