@@ -320,6 +320,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   const visibleblocks = useMemo(() => {
     return blocks.map((block: SRTBlock, index: number) => {
+      if(block.type === "title-end") return null;
       if (!isSubtitleBlock(block)) {
         return {
           ...block,

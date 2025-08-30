@@ -8,7 +8,7 @@ interface SRTSubtitle {
 }
 
 interface SRTTitle {
-  type: "title";
+  type: "title" | "title-end";
   text: string;
 }
 
@@ -38,6 +38,15 @@ function parseSRT(srtText: string): SRTDocument {
   for (const rawBlock of rawBlocks) {
     const lines = rawBlock.trim().split("\n");
     if (!lines.length) continue;
+
+    // --- TitleEnd Block ---
+    if (lines[0].startsWith("#TITLEEND")) {
+      const titleText = lines[0].substring(10).trim(); // 10 = length of "#TITLEEND"
+      if (titleText) {
+        blocks.push({ type: "title-end", text: titleText });
+      }
+      continue;
+    }
 
     // --- Title Block ---
     if (lines[0].startsWith("#TITLE")) {
