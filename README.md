@@ -38,7 +38,7 @@ Currently includes authentic recordings by आचार्य श्रेयस
 - **Frontend**: React 19 + TypeScript
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS with custom Sanskrit-friendly design
-- **Audio**: React Howler for advanced audio control
+- **Audio**: Native HTML5 Audio API with custom hooks
 - **Mobile**: Capacitor for native mobile apps
 - **Icons**: React Icons & Ant Design Icons
 
