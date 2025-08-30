@@ -50,12 +50,12 @@ export const usePositionPersistence = ({ localStoragePrefix }: UsePositionPersis
   };
 
   const saveFontSize = (fontSize: number) => {
-    localStorage.setItem(`${localStoragePrefix}_fontSize`, fontSize.toString());
+    localStorage.setItem(`player_fontSize`, fontSize.toString());
   };
 
   const getSavedFontSize = (): number | null => {
-    const savedFontSize = localStorage.getItem(`${localStoragePrefix}_fontSize`);
-    return savedFontSize ? parseInt(savedFontSize) : null;
+    const savedFontSize = localStorage.getItem(`player_fontSize`);
+    return savedFontSize ? Math.min(parseInt(savedFontSize),32) : null;
   };
 
   const savePlaybackSpeed = (speed: number) => {
