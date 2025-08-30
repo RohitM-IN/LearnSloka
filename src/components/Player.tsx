@@ -127,6 +127,18 @@ export const Player: React.FC<PlayerProps> = ({
 
   // Event handlers
   function handleStop() {
+    console.log(`🛑 Stop button clicked - stopping playback and seeking to segment start`);
+    
+    // If there's a current segment, seek to its start before stopping
+    if (currentIndex >= 0 && currentIndex < blocks.length) {
+      const currentBlock = blocks[currentIndex] as SRTSubtitle;
+      if (currentBlock && "start" in currentBlock) {
+        console.log(`🎯 Seeking to start of segment ${currentIndex} (${currentBlock.start.toFixed(2)}s)`);
+        audioControl.seekTo(currentBlock.start);
+      }
+    }
+    
+    // Complete stop functionality (as before)
     setIsPlaying(false);
     setCurrentIndex(-1);
     setAudioTime(0);
