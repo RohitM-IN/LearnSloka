@@ -15,6 +15,28 @@
 
 ## 🎵 Audio & Synchronization
 
+### Q: What audio technology does the app use?
+**A:** The app uses the native HTML5 Audio API with custom React hooks for audio control. This provides:
+- Better browser compatibility
+- Reduced bundle size
+- Native audio performance
+- Direct control over audio elements
+
+The custom `useAudioControl` hook handles:
+- Play/pause functionality
+- Seeking to specific timestamps  
+- Playback speed control
+- Volume management
+- Audio event handling
+
+### Q: Why doesn't the app use React Howler or other audio libraries?
+**A:** We switched to native HTML5 Audio because:
+- **Better Performance**: Native audio processing without additional abstraction layers
+- **Smaller Bundle**: Reduces JavaScript bundle size significantly
+- **Browser Compatibility**: Works consistently across all modern browsers
+- **Direct Control**: Full access to audio element properties and events
+- **Maintenance**: Fewer dependencies to maintain and update
+
 ### Q: What audio format is supported?
 **A:** The app supports MP3 format. For optimal performance and compatibility, audio files should be encoded with specific parameters (see technical requirements below).
 
@@ -55,6 +77,27 @@ ffmpeg -i input.mp3 -ar 48000 -ac 1 -b:a 64k output.mp3
 - **48kHz sample rate**: Ensures compatibility across all browsers and devices
 - **Mono audio**: Sanskrit recitations don't require stereo, saves bandwidth
 - **64kbps bitrate**: Provides clear audio quality while keeping file sizes manageable for mobile users
+
+### Q: The app crashes or has audio issues on some devices
+**A:** This can happen due to browser audio API limitations:
+- **Mobile browsers**: May have restrictions on autoplay and audio context
+- **iOS Safari**: Requires user interaction before playing audio
+- **Old Android browsers**: May have limited HTML5 audio support
+- **Memory constraints**: Long audio files may cause issues on low-end devices
+
+**Solutions:**
+1. Always interact with the app before expecting audio to play
+2. Clear browser cache and reload
+3. Try a different browser (Chrome usually has the best audio support)
+4. Ensure audio files are properly encoded with the recommended settings
+
+### Q: What's the difference between your audio implementation and other music apps?
+**A:** Our implementation is specifically optimized for learning:
+- **Segment-based playback**: Jump to any verse instantly
+- **Precise synchronization**: Sub-second accuracy with text highlighting  
+- **Educational controls**: Repeat modes, speed adjustment for learning
+- **Progress persistence**: Remember where you stopped for continued learning
+- **Lightweight**: No heavy audio library dependencies
 
 ### Q: My audio file is too large. How can I reduce the size?
 **A:** Use the FFmpeg command above, or try even lower bitrates:
