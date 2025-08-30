@@ -1,14 +1,19 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-declare global {
-  var debounceSeekTimeout: number | undefined;
-}
-import React, { useEffect, useRef, useState, useMemo } from "react";
-import { isSubtitleBlock, parseSRT, type SRTBlock, type SRTDocument, type SRTSubtitle } from "../utils/parser";
+import React, { useState, useMemo, useEffect } from "react";
+import { isSubtitleBlock, type SRTBlock, type SRTSubtitle } from "../utils/parser";
 import type { PlayerProps } from "../@types/player";
 import { MainControls } from "./MainControls";
 import { MobileControls } from "./MobileControls";
 import { ContinueModal } from "./ContinueModel";
 import { SegmentList } from "./SegmentList";
+import {
+  useAudioControl,
+  usePositionPersistence,
+  useSRTLoader,
+  useSegmentRepeat,
+  useAutoScroll,
+  useSegmentProgression
+} from "../hooks";
 
 
 export const Player: React.FC<PlayerProps> = ({
@@ -16,41 +21,74 @@ export const Player: React.FC<PlayerProps> = ({
   srtUrl,
   localStoragePrefix
 }) => {
-  const [blocks, setBlocks] = useState<SRTBlock[]>([]);
+  // Load SRT file
+  const { blocks } = useSRTLoader({ srtUrl });
+
+  // Core player state
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState<number>(0);
-  const [repeatCount, setRepeatCount] = useState<number>(1);
-  const [enableRepeat, setEnableRepeat] = useState<boolean>(false);
   const [currentRepeat, setCurrentRepeat] = useState<number>(0);
-  const [showContinueModal, setShowContinueModal] = useState<boolean>(false);
-  const [hasSavedPosition, setHasSavedPosition] = useState<boolean>(false);
-  const [hasShownFirstTimePrompt, setHasShownFirstTimePrompt] = useState<boolean>(false);
+  
+  // Settings state
   const [fontSize, setFontSize] = useState<number>(18);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [repeatCount, setRepeatCount] = useState<number>(1);
+  const [enableRepeat, setEnableRepeat] = useState<boolean>(false);
+  
+  // UI state
   const [showControls, setShowControls] = useState<boolean>(false);
-  const [segmentRepeat, setSegmentRepeat] = useState<{ [key: number]: 'default' | 'twice' | 'infinite' }>({});
+  const [showContinueModal, setShowContinueModal] = useState<boolean>(false);
+  const [hasShownFirstTimePrompt, setHasShownFirstTimePrompt] = useState<boolean>(false);
   const [animationStartTime, setAnimationStartTime] = useState<number | null>(null);
   const [pausedProgress, setPausedProgress] = useState<number>(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const intervalRef = useRef<number | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Custom hooks
+  const positionPersistence = usePositionPersistence({ localStoragePrefix });
+  const { segmentRepeat, toggleSegmentRepeat } = useSegmentRepeat();
+  const { scrollContainerRef, setSegmentRef } = useAutoScroll({ currentIndex, isPlaying, showControls });
+  
+  // Audio control hook
+  const audioControl = useAudioControl({
+    isPlaying,
+    playbackSpeed,
+    onStop: handleStop
+  });
+
+  // Load saved settings on mount
+  useEffect(() => {
+    const savedPosition = positionPersistence.getSavedPosition();
+    if (savedPosition) {
+      setCurrentIndex(savedPosition.index);
+      setAudioTime(savedPosition.time);
+    }
+
+    const savedFontSize = positionPersistence.getSavedFontSize();
+    if (savedFontSize) {
+      setFontSize(savedFontSize);
+    }
+
+    const savedSpeed = positionPersistence.getSavedPlaybackSpeed();
+    if (savedSpeed) {
+      setPlaybackSpeed(savedSpeed);
+    }
+  }, [localStoragePrefix]);
 
   // Centralized segment playback logic
   const playSegment = (index: number, repeat?: number) => {
-    // debugger
     const block = blocks[index] as SRTSubtitle;
-    if (!block || !audioRef.current) return;
+    if (!block || !audioControl.audioRef.current) return;
+    
     // Only seek if not already at the correct time
-    const currentSeek = audioRef.current.currentTime;
+    const currentSeek = audioControl.getCurrentTime();
     if (Math.abs(currentSeek - block.start) > 0.05) {
-      audioRef.current.currentTime = block.start;
+      audioControl.seekTo(block.start);
     }
-    audioRef.current.playbackRate = playbackSpeed;
+    audioControl.setPlaybackRate(playbackSpeed);
+    
     // Only play if not already playing
     if (!isPlaying) {
-      audioRef.current.play();
+      audioControl.play();
     }
 
     setCurrentIndex(index);
@@ -59,87 +97,56 @@ export const Player: React.FC<PlayerProps> = ({
     setCurrentRepeat(repeat ?? 0);
     setAnimationStartTime(Date.now());
     setPausedProgress(0);
-    savePosition();
+    positionPersistence.savePosition(index, block.start);
   };
-  // const manualSeekTimeRef = useRef<number>(0); // Track when manual seeks happen (not used)
 
-  // Load SRT from URL
-  useEffect(() => {
-    let isMounted = true;
-    fetch(srtUrl)
-      .then((res) => res.text())
-      .then((srt) => {
-        if (isMounted) {
-          const doc: SRTDocument = parseSRT(srt);
-          console.log(doc.blocks);
-          setBlocks(doc.blocks);
-        }
-      })
-      .catch((error) => {
-        if (isMounted) {
-          console.error('Error loading SRT:', error);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [srtUrl]);
-
-  // Load saved position on component mount
-  useEffect(() => {
-    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
-    if (savedPosition) {
-      const { index, time } = JSON.parse(savedPosition);
-      setCurrentIndex(index);
+  // Segment progression hook
+  useSegmentProgression({
+    isPlaying,
+    currentIndex,
+    blocks,
+    currentRepeat,
+    enableRepeat,
+    repeatCount,
+    segmentRepeat,
+    getCurrentTime: audioControl.getCurrentTime,
+    seekTo: audioControl.seekTo,
+    onTimeUpdate: (time) => {
       setAudioTime(time);
-      setHasSavedPosition(true);
-    }
+      positionPersistence.savePosition(currentIndex, time);
+    },
+    onIndexChange: setCurrentIndex,
+    onRepeatChange: setCurrentRepeat,
+    onStop: handleStop,
+    playSegment,
+    clearSavedPosition: positionPersistence.clearSavedPosition,
+    setIsPlaying
+  });
 
-    // Load saved font size
-    const savedFontSize = localStorage.getItem(`${localStoragePrefix}_fontSize`);
-    if (savedFontSize) {
-      setFontSize(parseInt(savedFontSize));
-    }
-
-    // Load saved playback speed
-    const savedSpeed = localStorage.getItem(`${localStoragePrefix}_playbackSpeed`);
-    if (savedSpeed) {
-      setPlaybackSpeed(parseFloat(savedSpeed));
-    }
-  }, [localStoragePrefix]);
-
-  const savePosition = () => {
-    if (currentIndex >= 0) {
-      localStorage.setItem(`${localStoragePrefix}_lastPosition`, JSON.stringify({
-        index: currentIndex,
-        time: audioTime
-      }));
-      setHasSavedPosition(true);
-    }
-  };
-
-  const clearSavedPosition = () => {
-    localStorage.removeItem(`${localStoragePrefix}_lastPosition`);
-    setHasSavedPosition(false);
-  };
+  // Event handlers
+  function handleStop() {
+    setIsPlaying(false);
+    setCurrentIndex(-1);
+    setAudioTime(0);
+    setCurrentRepeat(0);
+    setAnimationStartTime(null);
+    setPausedProgress(0);
+  }
 
   const handleFontSizeChange = (newSize: number) => {
     setFontSize(newSize);
-    localStorage.setItem(`${localStoragePrefix}_fontSize`, newSize.toString());
+    positionPersistence.saveFontSize(newSize);
   };
 
   const handleSpeedChange = (newSpeed: number) => {
     setPlaybackSpeed(newSpeed);
-    localStorage.setItem(`${localStoragePrefix}_playbackSpeed`, newSpeed.toString());
-    if (audioRef.current) {
-      audioRef.current.playbackRate = newSpeed;
-    }
+    positionPersistence.savePlaybackSpeed(newSpeed);
+    audioControl.setPlaybackRate(newSpeed);
   };
 
   const handlePlay = (startIndex: number = 0) => {
     // Check if this is the first time playing and there's a saved position
-    if (startIndex === 0 && hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
+    if (startIndex === 0 && positionPersistence.hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
       setShowContinueModal(true);
       setHasShownFirstTimePrompt(true);
       return;
@@ -153,10 +160,8 @@ export const Player: React.FC<PlayerProps> = ({
 
     // Clear saved data if starting from first line
     if (startIndex === 0) {
-      clearSavedPosition();
+      positionPersistence.clearSavedPosition();
     }
-
-    savePosition();
   };
 
   const handlePause = () => {
@@ -164,10 +169,6 @@ export const Player: React.FC<PlayerProps> = ({
     // Save current progress when pausing
     const currentProgress = getCurrentSegmentProgress();
     setPausedProgress(currentProgress);
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
   };
 
   const handleResume = () => {
@@ -175,65 +176,29 @@ export const Player: React.FC<PlayerProps> = ({
     setAnimationStartTime(Date.now());
   };
 
-  const handleStop = () => {
-    setIsPlaying(false);
-    setCurrentIndex(-1);
-    setAudioTime(0);
-    setCurrentRepeat(0);
-    setAnimationStartTime(null);
-    setPausedProgress(0);
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-  };
-
   const handleContinue = () => {
     setShowContinueModal(false);
-    const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
+    const savedPosition = positionPersistence.getSavedPosition();
     if (savedPosition) {
-      const { index } = JSON.parse(savedPosition);
-      setCurrentIndex(index);
+      setCurrentIndex(savedPosition.index);
       setIsPlaying(true);
       setCurrentRepeat(0);
-      savePosition();
     }
   };
 
   const handleStartFresh = () => {
     setShowContinueModal(false);
-    clearSavedPosition();
+    positionPersistence.clearSavedPosition();
     setCurrentIndex(0);
     setIsPlaying(true);
     setCurrentRepeat(0);
-    savePosition();
-  };
-
-  const toggleSegmentRepeat = (index: number) => {
-    setSegmentRepeat(prev => {
-      const current = prev[index] || 'default';
-      let next: 'default' | 'twice' | 'infinite' = 'default';
-
-      if (current === 'default') {
-        next = 'twice';
-      } else if (current === 'twice') {
-        next = 'infinite';
-      } else {
-        next = 'default';
-      }
-
-      return {
-        ...prev,
-        [index]: next
-      };
-    });
   };
 
   const handleSegmentClick = (index: number) => {
     setShowControls(false);
     // Only call playSegment if currentTime is outside the segment time
     const block = blocks[index] as SRTSubtitle;
-    const currentSeek = audioRef.current?.currentTime ?? 0;
+    const currentSeek = audioControl.getCurrentTime();
     
     // Handle clicking on the same segment that's currently active
     if (index === currentIndex) {
@@ -252,7 +217,6 @@ export const Player: React.FC<PlayerProps> = ({
     if (currentSeek < block.start - 0.05 || currentSeek > block.end + 0.05) {
       playSegment(index);
     }
-
   };
 
   const handlePlayButton = () => {
@@ -260,21 +224,20 @@ export const Player: React.FC<PlayerProps> = ({
     if (!isPlaying) {
       handleResume();
     }
-    if (hasSavedPosition && !isPlaying) {
-      const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
+    if (positionPersistence.hasSavedPosition && !isPlaying) {
+      const savedPosition = positionPersistence.getSavedPosition();
       if (savedPosition) {
-        const { index } = JSON.parse(savedPosition);
-        handlePlay(index);
+        handlePlay(savedPosition.index);
         return;
       }
     }
 
     // If no saved position or already shown prompt, start from first
-    if (hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
+    if (positionPersistence.hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
       setShowContinueModal(true);
       setHasShownFirstTimePrompt(true);
     }
-    else if (!hasSavedPosition && !isPlaying) {
+    else if (!positionPersistence.hasSavedPosition && !isPlaying) {
       handlePlay(0);
       setHasShownFirstTimePrompt(true);
     } else {
@@ -328,125 +291,6 @@ export const Player: React.FC<PlayerProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Auto-scroll to current segment
-  useEffect(() => {
-    if (isPlaying && currentIndex >= 0 && segmentRefs.current[currentIndex]) {
-      const currentElement = segmentRefs.current[currentIndex];
-      const container = scrollContainerRef.current;
-
-      if (currentElement && container) {
-        const elementRect = currentElement.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-
-        // Calculate available viewport height, considering modal if open
-        const modalHeight = showControls ? 350 : 0; // Modal height including padding
-        const availableBottom = containerRect.bottom - modalHeight;
-        const buffer = 20; // Extra space above modal
-
-        // Check if element would be hidden by modal or not fully visible
-        const isHiddenByModal = elementRect.bottom > (availableBottom - buffer);
-        const isAboveViewport = elementRect.top < containerRect.top;
-
-        if (isAboveViewport || isHiddenByModal) {
-          if (showControls) {
-            // When modal is open, scroll so element is in upper part of visible area
-            const targetY = containerRect.top + 50; // Position near top of visible area
-            const elementRect = currentElement.getBoundingClientRect();
-            const currentY = elementRect.top;
-            const offset = currentY - targetY;
-
-            container.scrollBy({
-              top: offset,
-              behavior: 'smooth'
-            });
-          } else {
-            // Normal center scrolling when modal is closed
-            currentElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center'
-            });
-          }
-        }
-      }
-    }
-  }, [currentIndex, isPlaying, showControls]);
-
-  // Effect to control audio playback based on isPlaying state
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch((error) => {
-          console.error('Error playing audio:', error);
-        });
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (isPlaying && currentIndex >= 0 && currentIndex < blocks.length) {
-
-      const block = blocks[currentIndex];
-      if (!isSubtitleBlock(block)) {
-        setCurrentIndex(currentIndex + 1);
-      }
-
-      // Set up interval to check audio time and advance blocks
-      intervalRef.current = setInterval(() => {
-        if (audioRef.current) {
-          const currentTime = audioRef.current.currentTime;
-          setAudioTime(currentTime);
-          savePosition();
-          if (currentIndex < 0 || currentIndex >= blocks.length) return;
-          const { start, end } = (blocks[currentIndex] as SRTSubtitle);
-          if (currentTime >= end) {
-            const segmentRepeatSetting = segmentRepeat[currentIndex] || 'default';
-            // Only call playSegment if currentTime is outside the next segment's start
-            if (segmentRepeatSetting === 'infinite') {
-              if (currentTime > end + 0.05) playSegment(currentIndex, 0);
-            } else if (segmentRepeatSetting === 'twice') {
-              if (currentRepeat < 1 && currentTime > end + 0.05) {
-                playSegment(currentIndex, currentRepeat + 1);
-              } else if (currentIndex + 1 < blocks.length && currentTime > end + 0.05) {
-                playSegment(currentIndex + 1, 0);
-              } else if (currentTime > end + 0.05) {
-                clearSavedPosition();
-                handleStop();
-              }
-            } else if (enableRepeat && currentRepeat < repeatCount - 1 && currentTime > end + 0.05) {
-              playSegment(currentIndex, currentRepeat + 1);
-            } else if (currentIndex + 1 < blocks.length && currentTime > end + 0.05) {
-              playSegment(currentIndex + 1, 0);
-            } else if (currentTime > end + 0.05) {
-              clearSavedPosition();
-              handleStop();
-            }
-          } else if (isPlaying && currentTime < start - 0.01 && audioRef.current) {
-            // Debounce: only run this block once per minute
-            if (!globalThis.debounceSeekTimeout || Date.now() - globalThis.debounceSeekTimeout > 1000) {
-              globalThis.debounceSeekTimeout = Date.now();
-              setTimeout(() => {
-                setIsPlaying(false);
-                if (audioRef.current) {
-                  audioRef.current.currentTime = start;
-                }
-                setIsPlaying(true);
-              }, 500);
-            }
-
-          }
-        }
-      }, 100);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, blocks]);
-
   const visibleblocks = useMemo(() => {
     return blocks.map((block: SRTBlock, index: number) => {
       if (!isSubtitleBlock(block)) {
@@ -472,14 +316,9 @@ export const Player: React.FC<PlayerProps> = ({
       // Check if this segment is the saved position when not playing
       let savedIndex = -1;
       if (!isPlaying) {
-        const savedPosition = localStorage.getItem(`${localStoragePrefix}_lastPosition`);
+        const savedPosition = positionPersistence.getSavedPosition();
         if (savedPosition) {
-          try {
-            const { index: savedIdx } = JSON.parse(savedPosition);
-            savedIndex = savedIdx;
-          } catch {
-            // Handle parsing error
-          }
+          savedIndex = savedPosition.index;
         }
       }
       const isSavedPosition = index === savedIndex && !isPlaying;
@@ -488,9 +327,7 @@ export const Player: React.FC<PlayerProps> = ({
         ...segment,
         label: (
           <div
-            ref={(el) => {
-              segmentRefs.current[index] = el;
-            }}
+            ref={setSegmentRef(index)}
             className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
               ? 'bg-active border-l-4 border-accent'
               : isCompleted
@@ -632,21 +469,11 @@ export const Player: React.FC<PlayerProps> = ({
 
       {/* Audio Element */}
       <audio
-        ref={audioRef}
+        {...audioControl.audioProps}
         src={audioSrc}
-        preload="auto"
-        onEnded={handleStop}
-        onPlay={() => {
-          console.log("Audio started playing");
-        }}
-        onPause={() => {
-          console.log("Audio paused");
-        }}
         onLoadedData={() => {
-          if (audioRef.current) {
-            audioRef.current.playbackRate = playbackSpeed;
-            audioRef.current.volume = 1.0;
-          }
+          audioControl.setPlaybackRate(playbackSpeed);
+          audioControl.setVolume(1.0);
         }}
       />
 
