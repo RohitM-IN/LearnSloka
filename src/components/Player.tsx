@@ -79,7 +79,7 @@ export const Player: React.FC<PlayerProps> = ({
     const block = blocks[index] as SRTSubtitle;
     if (!block || !audioControl.audioRef.current) return;
     
-    console.log(`🎯 Playing segment ${index}: "${block.text.slice(0, 50)}${block.text.length > 50 ? '...' : ''}" (${block.start.toFixed(2)}s - ${block.end.toFixed(2)}s, Repeat: ${repeat ?? 0})`);
+    console.log(`🎯 Playing segment ${index}: "${block.text.slice(0, 50)}${block.text.length > 50 ? '...' : ''}" (${block.start?.toFixed(2)}s - ${block.end?.toFixed(2)}s, Repeat: ${repeat ?? 0})`);
     
     // Only seek if not already at the correct time
     const currentSeek = audioControl.getCurrentTime();
