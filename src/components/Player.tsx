@@ -9,7 +9,6 @@ import { MainControls } from "./MainControls";
 import { MobileControls } from "./MobileControls";
 import { ContinueModal } from "./ContinueModel";
 import { SegmentList } from "./SegmentList";
-import ReactHowler from 'react-howler'
 
 
 export const Player: React.FC<PlayerProps> = ({
@@ -33,11 +32,10 @@ export const Player: React.FC<PlayerProps> = ({
   const [segmentRepeat, setSegmentRepeat] = useState<{ [key: number]: 'default' | 'twice' | 'infinite' }>({});
   const [animationStartTime, setAnimationStartTime] = useState<number | null>(null);
   const [pausedProgress, setPausedProgress] = useState<number>(0);
-  const audioRef = useRef<ReactHowler | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [id, setID] = useState<number | null>(null);
 
   // Centralized segment playback logic
   const playSegment = (index: number, repeat?: number) => {
@@ -45,14 +43,14 @@ export const Player: React.FC<PlayerProps> = ({
     const block = blocks[index] as SRTSubtitle;
     if (!block || !audioRef.current) return;
     // Only seek if not already at the correct time
-    const currentSeek = audioRef.current.howler.seek(id ?? undefined);
+    const currentSeek = audioRef.current.currentTime;
     if (Math.abs(currentSeek - block.start) > 0.05) {
-      audioRef.current.howler.seek(block.start, id ?? undefined);
+      audioRef.current.currentTime = block.start;
     }
-    audioRef.current.howler.rate(playbackSpeed, id ?? undefined);
+    audioRef.current.playbackRate = playbackSpeed;
     // Only play if not already playing
-    if (!isPlaying && id == undefined) {
-      audioRef.current.howler.play();
+    if (!isPlaying) {
+      audioRef.current.play();
     }
 
     setCurrentIndex(index);
@@ -134,8 +132,8 @@ export const Player: React.FC<PlayerProps> = ({
   const handleSpeedChange = (newSpeed: number) => {
     setPlaybackSpeed(newSpeed);
     localStorage.setItem(`${localStoragePrefix}_playbackSpeed`, newSpeed.toString());
-    if (audioRef.current && id != null) {
-      audioRef.current.howler.rate(newSpeed, id);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed;
     }
   };
 
@@ -235,11 +233,22 @@ export const Player: React.FC<PlayerProps> = ({
     setShowControls(false);
     // Only call playSegment if currentTime is outside the segment time
     const block = blocks[index] as SRTSubtitle;
-    const currentSeek = audioRef.current?.howler.seek(id ?? undefined) ?? 0;
-    if (index === currentIndex && isPlaying) {
-      setIsPlaying(false);
+    const currentSeek = audioRef.current?.currentTime ?? 0;
+    
+    // Handle clicking on the same segment that's currently active
+    if (index === currentIndex) {
+      if (isPlaying) {
+        // If playing, pause it
+        setIsPlaying(false);
+      } else {
+        // If paused, resume playback
+        setIsPlaying(true);
+        setAnimationStartTime(Date.now());
+      }
       return;
     }
+    
+    // For different segments, check if we need to seek
     if (currentSeek < block.start - 0.05 || currentSeek > block.end + 0.05) {
       playSegment(index);
     }
@@ -362,6 +371,19 @@ export const Player: React.FC<PlayerProps> = ({
     }
   }, [currentIndex, isPlaying, showControls]);
 
+  // Effect to control audio playback based on isPlaying state
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.play().catch((error) => {
+          console.error('Error playing audio:', error);
+        });
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
+
   useEffect(() => {
     if (isPlaying && currentIndex >= 0 && currentIndex < blocks.length) {
 
@@ -373,7 +395,7 @@ export const Player: React.FC<PlayerProps> = ({
       // Set up interval to check audio time and advance blocks
       intervalRef.current = setInterval(() => {
         if (audioRef.current) {
-          const currentTime = audioRef.current.howler.seek(id ?? undefined);
+          const currentTime = audioRef.current.currentTime;
           setAudioTime(currentTime);
           savePosition();
           if (currentIndex < 0 || currentIndex >= blocks.length) return;
@@ -406,7 +428,9 @@ export const Player: React.FC<PlayerProps> = ({
               globalThis.debounceSeekTimeout = Date.now();
               setTimeout(() => {
                 setIsPlaying(false);
-                audioRef.current?.howler.seek(start, id ?? undefined);
+                if (audioRef.current) {
+                  audioRef.current.currentTime = start;
+                }
                 setIsPlaying(true);
               }, 500);
             }
@@ -421,7 +445,7 @@ export const Player: React.FC<PlayerProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, blocks, id]);
+  }, [currentIndex, isPlaying, currentRepeat, enableRepeat, repeatCount, playbackSpeed, segmentRepeat, blocks]);
 
   const visibleblocks = useMemo(() => {
     return blocks.map((block: SRTBlock, index: number) => {
@@ -607,25 +631,23 @@ export const Player: React.FC<PlayerProps> = ({
       />
 
       {/* Audio Element */}
-      <ReactHowler
+      <audio
         ref={audioRef}
         src={audioSrc}
-        preload={true}
-        playing={isPlaying}
-        html5={true}
-        onEnd={handleStop}
-        onSeek={(id: number) => {
-          console.log("Seeked:", id);
+        preload="auto"
+        onEnded={handleStop}
+        onPlay={() => {
+          console.log("Audio started playing");
         }}
-        onPlay={(id) => {
-          setID((prev) => {
-            if (prev && prev !== id) audioRef.current?.howler.pause(prev);
-            return id;
-          });
+        onPause={() => {
+          console.log("Audio paused");
         }}
-        rate={playbackSpeed}
-        volume={1.0}
-
+        onLoadedData={() => {
+          if (audioRef.current) {
+            audioRef.current.playbackRate = playbackSpeed;
+            audioRef.current.volume = 1.0;
+          }
+        }}
       />
 
       {/* Continue Modal */}
