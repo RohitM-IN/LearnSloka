@@ -1,8 +1,10 @@
 import { IoMdArrowRoundBack } from "react-icons/io";
+import { MdLightMode, MdDarkMode } from "react-icons/md";
 import { Player } from "./components/Player";
 import { useState, useEffect, useCallback } from "react";
 import { App as CapacitorApp } from '@capacitor/app';
 import type { PluginListenerHandle } from '@capacitor/core';
+import { useTheme } from './contexts/ThemeContext';
 
 interface Song {
   id: number;
@@ -18,6 +20,41 @@ function App() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [loading, setLoading] = useState(true);
+  const { theme, toggleTheme } = useTheme();
+
+  // Inline Components for better organization
+  const SongIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent group-hover:text-primary-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+    </svg>
+  );
+
+  const PlayIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+    </svg>
+  );
+
+  const SongItem = ({ song }: { song: Song }) => (
+    <article
+      onClick={() => handleSongSelect(song)}
+      className="p-4 border border-divider rounded-lg cursor-pointer hover:bg-hover transition-all duration-200 flex items-center group"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && handleSongSelect(song)}
+    >
+      <div className="bg-surface rounded-full w-12 h-12 flex items-center justify-center mr-4 transition-colors">
+        <SongIcon />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-medium text-lg truncate text-primary-text">{song.title}</h3>
+        <p className="text-subtext text-sm truncate">{song.artist}</p>
+      </div>
+      <div className="text-accent group-hover:text-primary-text transition-colors flex-shrink-0 ml-2">
+        <PlayIcon />
+      </div>
+    </article>
+  );
 
   // Get song slug from URL
   const getSongSlugFromUrl = () => {
@@ -113,135 +150,109 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-spotify-black text-white">
+      <div className="flex justify-center items-center h-screen bg-background text-primary-text">
         <div className="text-xl">Loading songs...</div>
       </div>
     );
   }
 
-  if (currentSong) {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden">
-        <div className="bg-spotify-gray py-2 px-4 shadow-lg">
-          <div className="container mx-auto">
-            {/* Mobile Header */}
-            <div className="md:hidden">
-              <div className="flex justify-center items-center">
-                <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
-              </div>
-            </div>
-            <div className="md:hidden">
-              <div className="flex flex-col space-y-2">
-                <div className="flex justify-between items-center relative">
-                  <div className="flex items-center">
-                    <button
-                      onClick={handleBackToList}
-                      className="hover:text-green-400 mr-2"
-                    >
-                      <IoMdArrowRoundBack />
-                    </button>
-                      <div className="flex items-center">
-                        <span className="text-lg font-bold text-green-500">{currentSong?.title}</span>
-                      </div>
-
-                  </div>
-                  <div className="text-xs text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
-                    <span className="font-semibold">Rohit Sopan Mahajan</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Desktop Header */}
-            <div className="hidden md:flex justify-between items-center">
+  return (
+    <div className="flex flex-col h-screen bg-background text-primary-text overflow-hidden">
+      {/* Header */}
+      <header className="bg-background py-2 px-4 shadow-lg border-b border-divider">
+        <div className="container mx-auto flex justify-between items-center">
+          {currentSong ? (
+            // Player header
+            <>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleBackToList}
-                  className="hover:cursor-pointer"
+                  className="text-primary-text hover:text-accent hover:cursor-pointer"
                 >
-                  <IoMdArrowRoundBack className="hover:text-green-400" />
+                  <IoMdArrowRoundBack className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
-                <span className="text-2xl font-bold text-green-500">{currentSong?.title}</span>
-
+                <span className="text-lg md:text-2xl font-bold text-accent">{currentSong.title}</span>
               </div>
-              <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
-              <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
-                <span className="font-semibold">Rohit Sopan Mahajan</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <Player
-          audioSrc={currentSong.audioSrc}
-          srtUrl={currentSong.srtUrl}
-          localStoragePrefix={`${currentSong.title.replace(/\s+/g, '_')}_player`}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-screen bg-spotify-black text-white">
-      {/* Header */}
-      <div className="bg-spotify-gray py-2 px-4 shadow-lg">
-        <div className="container mx-auto">
-          {/* Mobile Header */}
-          <div className="md:hidden">
-            <div className="flex justify-center">
-              <span className="text-lg font-bold text-green-500">श्लोकपाठम्</span>
-            </div>
-          </div>
-
-          {/* Desktop Header */}
-          <div className="hidden md:flex justify-center items-center">
-            <div></div> {/* Empty div for spacing */}
-            <h1 className="text-2xl font-bold text-green-500">श्लोकपाठम्</h1>
-          </div>
-        </div>
-      </div>
-
-      {/* Song List */}
-      <div className="flex-1 overflow-y-auto p-4 pb-12">
-        <div className="container mx-auto">
-          <h2 className="text-xl mb-4 font-bold text-green-500">श्लोकसूची</h2>
-          {songs.length === 0 ? (
-            <div className="text-gray-400 text-center py-8">No songs available</div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {songs.map((song) => (
-                <div
-                  key={song.id}
-                  onClick={() => handleSongSelect(song)}
-                  className="bg-gray-800 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-all duration-200 flex items-center"
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-full text-subtext hover:text-accent transition-colors"
+                  aria-label="Toggle theme"
                 >
-                  <div className="bg-gray-600 rounded-full w-12 h-12 flex items-center justify-center mr-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-lg">{song.title}</div>
-                    <div className="text-gray-400 text-sm">{song.artist}</div>
-                  </div>
-                  <div className="text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                    </svg>
-                  </div>
+                  {theme === 'dark' ? <MdLightMode className="w-5 h-5" /> : <MdDarkMode className="w-5 h-5" />}
+                </button>
+                <div className="text-xs md:text-sm text-subtext bg-surface px-3 py-1 rounded-full">
+                  <span className="font-semibold">Rohit Sopan Mahajan</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            </>
+          ) : (
+            // Song list header
+            <>
+              <div></div> {/* Spacer */}
+              <h1 className="text-lg md:text-2xl font-bold text-accent">श्लोकपाठम्</h1>
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full text-subtext hover:text-accent transition-colors"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? <MdLightMode className="w-4 h-4 md:w-5 md:h-5" /> : <MdDarkMode className="w-4 h-4 md:w-5 md:h-5" />}
+              </button>
+            </>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-spotify-gray py-2 px-4 text-center">
-        <p className="text-xs text-gray-400">
-          <span className="text-[10px]">Created By</span>{" "}
-          <span className="font-semibold text-xs">Rohit Sopan Mahajan</span>
-        </p>
-      </div>
+      {/* Main Content */}
+      {currentSong ? (
+        // Player view
+        <main className="flex-1 flex flex-col overflow-hidden" role="main">
+          <article className="flex-1 flex flex-col overflow-hidden">
+            <header className="sr-only">
+              <h1>{currentSong.title}</h1>
+              <p>Sanskrit stotra with audio synchronization</p>
+            </header>
+            <Player
+              audioSrc={currentSong.audioSrc}
+              srtUrl={currentSong.srtUrl}
+              localStoragePrefix={`${currentSong.title.replace(/\s+/g, '_')}_player`}
+              songTitle={currentSong.title}
+            />
+          </article>
+        </main>
+      ) : (
+        // Song list view
+        <main className="flex-1 overflow-y-auto p-4 pb-20">
+          <div className="container mx-auto max-w-2xl">
+            <h2 className="text-xl mb-6 font-bold text-accent">श्लोकसूची</h2>
+            
+            {songs.length === 0 ? (
+              <div className="text-subtext text-center py-12 flex flex-col items-center">
+                <div className="mb-4">
+                  <SongIcon />
+                </div>
+                <p>No songs available</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {songs.map((song) => (
+                  <SongItem key={song.id} song={song} />
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      )}
+
+      {/* Footer - Song list only */}
+      {!currentSong && (
+        <footer className="fixed bottom-0 left-0 right-0 bg-surface py-3 px-4 text-center border-t border-divider">
+          <p className="text-xs text-subtext">
+            <span className="text-[10px]">Created By</span>{" "}
+            <span className="font-semibold text-xs">Rohit Sopan Mahajan</span>
+          </p>
+        </footer>
+      )}
     </div>
   );
 }

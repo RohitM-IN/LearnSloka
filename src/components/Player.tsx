@@ -19,7 +19,8 @@ import {
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
   srtUrl,
-  localStoragePrefix
+  localStoragePrefix,
+  songTitle
 }) => {
   // Load SRT file
   const { blocks } = useSRTLoader({ srtUrl });
@@ -78,9 +79,9 @@ export const Player: React.FC<PlayerProps> = ({
   const playSegment = (index: number, repeat?: number) => {
     const block = blocks[index] as SRTSubtitle;
     if (!block || !audioControl.audioRef.current) return;
-    
+
     console.log(`🎯 Playing segment ${index}: "${block.text.slice(0, 50)}${block.text.length > 50 ? '...' : ''}" (${block.start?.toFixed(2)}s - ${block.end?.toFixed(2)}s, Repeat: ${repeat ?? 0})`);
-    
+
     // Only seek if not already at the correct time
     const currentSeek = audioControl.getCurrentTime();
     if (Math.abs(currentSeek - block.start) > 0.05) {
@@ -313,13 +314,31 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   const formatTime = (time: number) => {
+    if(isNaN(time) || time < 0) 
+      return "";
+
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const visibleblocks = useMemo(() => {
-    return blocks.map((block: SRTBlock, index: number) => {
+    // const songTitleBlock = {
+    //   type: 'song-title' as const,
+    //   text: songTitle,
+    //   label: (
+    //     <header className="text-center">
+    //       <h1 className="text-2xl font-bold text-accent sanskrit-title" style={{
+    //         fontSize: `${Math.min(fontSize + 6, 36)}px`,
+    //         lineHeight: '1.6'
+    //       }}>
+    //         {songTitle}
+    //       </h1>
+    //     </header>
+    //   ),
+    // };
+
+    const processedBlocks = blocks.map((block: SRTBlock, index: number) => {
       if(block.type === "title-end") return null;
       if (!isSubtitleBlock(block)) {
         return {
@@ -328,8 +347,7 @@ export const Player: React.FC<PlayerProps> = ({
             <div className="segment-title my-4 text-center">
               <h2 className="font-bold text-accent" style={{
                 fontSize: `${Math.min(fontSize + 3, 32)}px`,
-                lineHeight: '1.6',
-                fontFamily: 'Noto Sans Devanagari, Arial, sans-serif'
+                lineHeight: '1.6'
               }}>
                 {block.text}
               </h2>
@@ -356,7 +374,7 @@ export const Player: React.FC<PlayerProps> = ({
         label: (
           <div
             ref={setSegmentRef(index)}
-            className={`segment-item rounded-lg px-2 py-3 mb-1 transition-all duration-200 cursor-pointer ${isActive
+            className={`segment-item rounded-lg px-2 py-3 mb-1 cursor-pointer ${isActive
               ? 'bg-active border-l-4 border-accent'
               : isCompleted
                 ? 'bg-surface'
@@ -370,17 +388,16 @@ export const Player: React.FC<PlayerProps> = ({
               <div className="flex-1">
                 <p
                   className={`${isActive
-                    ? 'text-accent font-semibold'
+                    ? 'font-semibold text-primary-text dark:text-accent'
                     : isCompleted
                       ? 'text-subtext'
                       : isSavedPosition
-                        ? 'text-white font-semibold'
-                        : 'text-white'
+                        ? 'text-primary-text font-semibold'
+                        : 'text-primary-text'
                     } whitespace-pre-wrap break-words`}
                   style={{
                     fontSize: `${fontSize}px`,
-                    lineHeight: '1.6',
-                    fontFamily: 'Noto Sans Devanagari, Arial, sans-serif'
+                    lineHeight: '1.6'
                   }}
                 >
                   {segment.text}
@@ -416,7 +433,7 @@ export const Player: React.FC<PlayerProps> = ({
                         className="bg-accent h-1.5 rounded-full transition-all ease-linear"
                         style={{
                           width: `${getSmoothProgress()}%`,
-                          transitionDuration: isPlaying ? '100ms' : '200ms'
+                          transitionDuration: isPlaying ? '150ms' : '200ms'
                         }}
                       />
                     </div>
@@ -432,7 +449,7 @@ export const Player: React.FC<PlayerProps> = ({
                     e.stopPropagation();
                     toggleSegmentRepeat(index);
                   }}
-                  className={`p-1 rounded-full transition-colors ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
+                  className={`p-1 rounded-full transition-colors duration-700 ${segmentRepeat[index] === 'twice' || segmentRepeat[index] === 'infinite'
                     ? 'text-accent bg-active'
                     : 'text-subtext hover:text-white'
                     }`}
@@ -447,10 +464,12 @@ export const Player: React.FC<PlayerProps> = ({
         ),
       };
     });
-  }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress]);
+    
+    return [/*songTitleBlock,*/ ...processedBlocks.filter(block => block !== null)];
+  }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress, songTitle]);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden bg-background text-text">
+    <div className="flex flex-col flex-1 overflow-hidden bg-background text-primary-text">
 
       {/* Main Controls - Always Visible */}
       <div className="container mx-auto">
