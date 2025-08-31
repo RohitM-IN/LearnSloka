@@ -39,26 +39,26 @@ export const MainControls: React.FC<MainControlsProps> = ({
           </div>
           
           {/* Control Buttons - Centered */}
-          <div className="flex justify-center items-center space-x-1">
+          <div className="flex justify-center items-center space-x-2">
             <button
               onClick={onRefresh}
               disabled={isPlaying}
-              className={`p-1.5 rounded-full transition-colors ${isPlaying ? 'bg-base opacity-50 text-primary-text' : 'bg-accent hover:opacity-80 text-primary-text'}`}
+              className={`p-3 rounded-full transition-colors ${isPlaying ? 'bg-base opacity-50' : 'bg-accent hover:opacity-80'}`}
             >
-              <VscDebugRestart className="text-sm" />
+              <VscDebugRestart/>
             </button>
             <button
               onClick={onPlay}
-              className="p-1.5 rounded-full transition-colors bg-accent hover:opacity-80 text-primary-text"
+              className="p-3 rounded-full transition-colors bg-accent hover:opacity-80 text-primary-text"
             >
-              {isPlaying ? <VscDebugPause className="text-sm" /> : <VscPlay className="ml-0.5 text-sm" />}
+              {isPlaying ? <VscDebugPause/> : <VscPlay className="ml-0.5 text-primary-text" />}
             </button>
             <button
               onClick={onStop}
               disabled={!isPlaying}
-              className={`p-1.5 rounded-full transition-colors ${!isPlaying ? 'bg-base opacity-50 text-primary-text' : 'bg-accent hover:opacity-80 text-primary-text'}`}
+              className={`p-3 rounded-full transition-colors ${!isPlaying ? 'bg-base opacity-50 text-primary-text' : 'bg-accent hover:opacity-80 text-primary-text'}`}
             >
-              <VscDebugStop className="text-sm" />
+              <VscDebugStop/>
             </button>
           </div>
 
@@ -92,7 +92,7 @@ export const MainControls: React.FC<MainControlsProps> = ({
               disabled={isPlaying}
               className={`p-1.5 rounded-full transition-colors ${isPlaying ? 'bg-surface opacity-50 text-primary-text' : 'bg-base hover:bg-accent hover:opacity-80 text-primary-text'}`}
             >
-              <FaRedo className="text-sm" />
+              <FaRedo className="text-sm text-primary-text" />
             </button>
             <button
               onClick={onPlay}
