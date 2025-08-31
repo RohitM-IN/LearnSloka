@@ -246,7 +246,7 @@ function App() {
 
       {/* Footer - Song list only */}
       {!currentSong && (
-        <footer className="fixed bottom-0 left-0 right-0 bg-surface py-3 px-4 text-center border-t border-divider">
+        <footer className="fixed bottom-0 left-0 right-0 py-3 px-4 text-center border-t border-divider">
           <p className="text-xs text-subtext">
             <span className="text-[10px]">Created By</span>{" "}
             <span className="font-semibold text-xs">Rohit Sopan Mahajan</span>
