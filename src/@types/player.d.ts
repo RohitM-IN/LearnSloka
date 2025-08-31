@@ -2,6 +2,7 @@ export interface PlayerProps {
   audioSrc: string;
   srtUrl: string;
   localStoragePrefix: string;
+  songTitle: string;
 }
 
 export interface ContinueModalProps {

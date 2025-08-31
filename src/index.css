@@ -1,29 +1,124 @@
 @import "tailwindcss";
 
+/* ===== TAILWIND CSS DARK MODE CONFIGURATION ===== */
+/* Custom dark variant that targets .dark class and its descendants for precise theme control */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-background: #000000;   /* main bg */
-  --color-surface: #1e2128;     /* panels / cards */
-  --color-active: #262a33;      /* active/selected */
-  --color-divider: #323743;     /* separators */
-  --color-base: #465662;        /* muted base */
+  /* Surface & Layout Colors */
+  --color-background: var(--color-background);   /* Main application background */
+  --color-surface: var(--color-surface);         /* Card/panel surfaces */
+  --color-active: var(--color-active);           /* Active/selected element backgrounds */
+  --color-divider: var(--color-divider);         /* Border lines and separators */
+  --color-base: var(--color-base);               /* Muted base elements */
 
-  --color-text: #ffffff;        /* main text */
-  --color-subtext: #b3b3b3;     /* secondary text */
+  /* Text Colors */
+  --color-primary-text: var(--color-primary-text); /* Primary readable text */
+  --color-subtext: var(--color-subtext);           /* Secondary/muted text */
 
-  --color-accent: #1DB954;      /* green */
-  --color-hover: #2a2e39;       /* hover state (slightly lighter than active) */
+  /* Interactive Colors */
+  --color-accent: var(--color-accent);             /* Brand accent color (consistent across themes) */
+  --color-hover: var(--color-hover);               /* Hover state backgrounds */
+
+  /* Legacy App Colors (for gradual migration) */
+  --color-app-black: var(--color-app-black);       /* Legacy black equivalent */
+  --color-app-gray: var(--color-app-gray);         /* Legacy gray equivalent */
+}
+
+/* ===== LIGHT THEME COLOR DEFINITIONS ===== */
+/* Optimized for readability with very light backgrounds and dark text */
+:root {
+  
+  /* Surface & Layout Colors */
+  --color-background: #fefefe;   /* Main application background - near white */
+  --color-surface: #f8f9fa;     /* Card/panel surfaces - light gray */
+  --color-active: #e9ecef;      /* Active/selected element backgrounds */
+  --color-divider: #dee2e6;     /* Border lines and separators */
+  --color-base: #adb5bd;        /* Muted base elements - medium gray */
+
+  /* Text Colors */
+  --color-primary-text: #212529; /* Primary readable text - dark gray/black */
+  --color-subtext: #6c757d;      /* Secondary/muted text - medium gray */
+
+  /* Interactive Colors */
+  --color-accent: #1DB954;       /* Spotify green - consistent brand color */
+  --color-hover: #f1f3f4;        /* Subtle hover state background */
+  
+  /* Legacy App Colors (for gradual migration to new system) */
+  --color-app-black: #fefefe;    /* Maps to light background in new system */
+  --color-app-gray: #f8f9fa;     /* Maps to light surface in new system */
+}
+
+/* ===== DARK THEME COLOR DEFINITIONS ===== */
+/* Optimized for low-light viewing with dark backgrounds and light text */
+.dark {
+  /* Surface & Layout Colors */
+  --color-background: #000000;   /* Pure black main background for deep contrast */
+  --color-surface: #1e2128;     /* Dark gray for card/panel surfaces */
+  --color-active: #262a33;      /* Slightly lighter gray for active/selected states */
+  --color-divider: #323743;     /* Medium gray for border lines and separators */
+  --color-base: #465662;        /* Muted gray for base elements */
+
+  /* Text Colors */
+  --color-primary-text: #ffffff; /* Pure white for maximum readability */
+  --color-subtext: #b3b3b3;      /* Light gray for secondary/muted text */
+
+  /* Interactive Colors */
+  --color-accent: #1DB954;       /* Spotify green - consistent brand color */
+  --color-hover: #2a2e39;        /* Subtle hover state (slightly lighter than active) */
+  
+  /* Legacy App Colors (for gradual migration to new system) */
+  --color-app-black: #121212;    /* Maps to dark background in new system */
+  --color-app-gray: #1e2128;     /* Maps to dark surface in new system */
 }
 
 
+/* ===== GLOBAL STYLES ===== */
 body {
   margin: 0;
   padding: 0;
+  /* Multi-script font stack: Sanskrit Devanagari -> System fonts */
   font-family: 'Noto Sans Devanagari', 'Tiro Devanagari Sanskrit',
     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   background-color: var(--color-background);
   color: var(--color-text);
+  /* Smooth theme transition animations */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ===== CONTENT LAYOUT COMPONENTS ===== */
+/* Optimized for Chrome Reading Mode and accessibility */
+.sanskrit-content {
+  @apply max-w-4xl mx-auto leading-relaxed p-2;
+}
+
+/* Sanskrit title styling with accent color */
+.sanskrit-title {
+  @apply my-1 text-center font-bold text-xl;
+  color: var(--color-accent);
+}
+
+/* Sanskrit verse container with smooth transitions */
+.sanskrit-verse {
+  @apply my-2 rounded-md transition-colors duration-300 leading-relaxed;
+}
+
+/* ===== INTERACTIVE ELEMENT TRANSITIONS ===== */
+/* Prevent theme transition conflicts on segment items */
+.segment-item {
+  /* Only transition specific properties to avoid conflicts */
+  transition-property: background-color, border-color, color;
+  transition-timing-function: ease-out;
+}
+
+/* Fast hover response for better user experience */
+.segment-item:hover {
+  transition-duration: 150ms;
 }
 
 
+
+/* ===== SCROLLBAR PLUGIN ===== */
+/* Enable custom scrollbar styling (requires tailwind-scrollbar plugin) */
 @plugin 'tailwind-scrollbar';

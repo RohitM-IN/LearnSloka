@@ -22,169 +22,175 @@ export const MainControls: React.FC<MainControlsProps> = ({
   onSpeedChange,
   onFontSizeChange
 }) => {
+  // Calculate total duration from blocks
+  const totalDuration = blocks.length > 0 ? 
+    (blocks[blocks.length - 1] && 'end' in blocks[blocks.length - 1] ? 
+     (blocks[blocks.length - 1] as any).end : 0) : 0;
+
   return (
-    <div className="bg-background p-4 border-b border-divider select-none">
+    <div className="bg-background p-2 select-none">
       {/* Mobile Layout */}
       <div className="md:hidden">
-        <div className="flex justify-center items-center space-x-2">
-          <div>
+        <div className="flex justify-between items-center">
+          {/* Current Time */}
+          <div className="flex items-center min-w-[50px]">
+            {isPlaying && (
+              <span className="font-semibold text-xs text-accent">{formatTime(audioTime)}</span>
+            )}
+          </div>
+          
+          {/* Control Buttons - Centered */}
+          <div className="flex justify-center items-center space-x-1">
             <button
               onClick={onRefresh}
               disabled={isPlaying}
-              className={`p-2 rounded-full transition-colors text-white ${isPlaying ? 'bg-base opacity-50' : 'bg-accent hover:bg-accent/80'}`}
+              className={`p-1.5 rounded-full transition-colors ${isPlaying ? 'bg-base opacity-50 text-primary-text' : 'bg-accent hover:opacity-80 text-primary-text'}`}
             >
-              <VscDebugRestart  className="" />
+              <VscDebugRestart className="text-sm" />
             </button>
-          </div>
-          <div>
             <button
               onClick={onPlay}
-              className={`p-2 rounded-full transition-colors text-white bg-accent hover:bg-accent/80`}
+              className="p-1.5 rounded-full transition-colors bg-accent hover:opacity-80 text-primary-text"
             >
-              {isPlaying ? <VscDebugPause  className="" /> : <VscPlay  className=" ml-0.5" />}
+              {isPlaying ? <VscDebugPause className="text-sm" /> : <VscPlay className="ml-0.5 text-sm" />}
             </button>
-          </div>
-          <div>
             <button
               onClick={onStop}
               disabled={!isPlaying}
-              className={`p-2 rounded-full transition-colors text-white ${!isPlaying ? 'bg-base opacity-50' : 'bg-accent hover:bg-accent/80'}`}
+              className={`p-1.5 rounded-full transition-colors ${!isPlaying ? 'bg-base opacity-50 text-primary-text' : 'bg-accent hover:opacity-80 text-primary-text'}`}
             >
-              <VscDebugStop  className="" />
+              <VscDebugStop className="text-sm" />
             </button>
           </div>
 
-          {isPlaying ? (
-            <div className="bg-surface px-2 py-1 rounded-full flex items-center w-32 justify-center">
-              <span className="text-accent font-semibold text-sm">{formatTime(audioTime)}</span>
-              {currentIndex >= 0 && (
-                <span className="text-subtext text-xs ml-1">
-                  ({currentIndex + 1}/{blocks.length})
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="w-32 h-8"></div>
-          )}
+          {/* Total Duration */}
+          <div className="flex items-center justify-end min-w-[50px]">
+            {isPlaying && totalDuration > 0 && (
+              <span className="text-xs text-subtext">{formatTime(totalDuration)}</span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Desktop Layout */}
       <div className="hidden md:flex justify-between items-center">
+        {/* Left spacer */}
+        <div className="flex-1"></div>
+        
+        {/* Central Playback Controls with Time Display */}
         <div className="flex items-center space-x-4">
-          <div>
+          {/* Current Time */}
+          <div className="flex items-center min-w-[70px] justify-end">
+            {isPlaying && (
+              <span className="font-semibold text-sm text-subtext">{formatTime(audioTime)}</span>
+            )}
+          </div>
+          
+          {/* Control Buttons */}
+          <div className="flex items-center space-x-3">
             <button
               onClick={onRefresh}
               disabled={isPlaying}
-              className={`p-2 rounded-full transition-colors text-white ${isPlaying ? 'bg-surface opacity-50' : 'bg-accent hover:bg-accent/80'}`}
+              className={`p-1.5 rounded-full transition-colors ${isPlaying ? 'bg-surface opacity-50 text-primary-text' : 'bg-base hover:bg-accent hover:opacity-80 text-primary-text'}`}
             >
-              <FaRedo className="" />
+              <FaRedo className="text-sm" />
             </button>
-          </div>
-          <div>
             <button
               onClick={onPlay}
-              className={`p-2 rounded-full transition-colors text-white ${(isPlaying && currentIndex >= 0) ? 'bg-surface opacity-50' : 'bg-accent hover:bg-accent/80'}`}
+              className={`p-1.5 rounded-full transition-colors bg-base hover:bg-accent hover:opacity-80 text-primary-text`}
             >
-              {isPlaying ? <FaPause className="" /> : <FaPlay className="ml-0.5" />}
+              {isPlaying ? <FaPause className="text-sm" /> : <FaPlay className="ml-0.5 text-sm" />}
             </button>
-          </div>
-          <div>
             <button
               onClick={onStop}
               disabled={!isPlaying}
-              className={`p-2 rounded-full transition-colors text-white ${!isPlaying ? 'bg-surface opacity-50' : 'bg-accent hover:bg-accent/80'}`}
+              className={`p-1.5 rounded-full transition-colors ${!isPlaying ? 'bg-surface opacity-50 text-primary-text' : 'bg-base hover:bg-accent hover:opacity-80 text-primary-text'}`}
             >
-              <FaStop className="" />
+              <FaStop className="text-sm" />
             </button>
           </div>
 
-          {/* Duration Block for Desktop */}
-          {isPlaying ? (
-            <div className="bg-surface px-3 py-1.5 rounded-full flex items-center ml-4">
-              <span className="text-accent font-semibold text-sm">{formatTime(audioTime)}</span>
-              {currentIndex >= 0 && (
-                <span className="text-subtext text-xs ml-2">
-                  ({currentIndex + 1}/{blocks.length})
-                </span>
+          {/* Total Duration */}
+          <div className="flex items-center min-w-[70px]">
+            {isPlaying && totalDuration > 0 && (
+              <span className="text-sm text-subtext">{formatTime(totalDuration)}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Right section with Settings */}
+        <div className="flex items-center justify-end flex-1">
+          <div className="flex items-center space-x-4 rounded-full px-3 py-1.5 bg-surface">
+            {/* Repeat Controls */}
+            <div className="flex items-center space-x-1.5">
+              <span className="text-xs font-medium text-primary-text">Repeat:</span>
+              <button
+                onClick={onRepeatToggle}
+                className={`px-2 py-0.5 rounded-full text-xs font-medium text-primary-text ${enableRepeat ? 'bg-accent' : 'bg-base hover:opacity-80'}`}
+              >
+                {enableRepeat ? 'ON' : 'OFF'}
+              </button>
+              {enableRepeat && (
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => onRepeatCountChange(Math.max(1, repeatCount - 1))}
+                    className="w-5 h-5 flex items-center justify-center hover:opacity-80 rounded-full text-xs bg-base text-primary-text"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs w-4 text-center text-primary-text">{repeatCount}</span>
+                  <button
+                    onClick={() => onRepeatCountChange(Math.min(10, repeatCount + 1))}
+                    className="w-5 h-5 flex items-center justify-center hover:opacity-80 rounded-full text-xs bg-base text-primary-text"
+                  >
+                    +
+                  </button>
+                </div>
               )}
             </div>
-          ) : (
-            <div className="ml-4"></div>
-          )}
-        </div>
-        
-        {/* All Desktop Controls in one line */}
-        <div className="flex items-center space-x-4 bg-surface rounded-full px-3 py-1.5">
-          {/* Repeat Controls */}
-          <div className="flex items-center space-x-1.5">
-            <span className="text-xs font-medium text-white">Repeat:</span>
-            <button
-              onClick={onRepeatToggle}
-              className={`px-2 py-0.5 rounded-full text-xs font-medium text-white ${enableRepeat ? 'bg-accent' : 'bg-base hover:bg-hover'}`}
-            >
-              {enableRepeat ? 'ON' : 'OFF'}
-            </button>
-            {enableRepeat && (
-              <div className="flex items-center space-x-0.5">
+
+            {/* Speed Controls */}
+            <div className="flex items-center space-x-1.5">
+              <span className="text-xs font-medium text-primary-text">Speed:</span>
+              <div className="flex items-center space-x-1">
                 <button
-                  onClick={() => onRepeatCountChange(Math.max(1, repeatCount - 1))}
-                  className="w-5 h-5 flex items-center justify-center bg-base hover:bg-hover rounded-full text-white text-xs"
+                  onClick={() => onSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
+                  disabled={playbackSpeed <= 0.25}
+                  className={`w-5 h-5 flex items-center justify-center rounded-full text-xs bg-base text-primary-text ${playbackSpeed <= 0.25 ? 'opacity-50' : 'hover:opacity-80'}`}
                 >
                   -
                 </button>
-                <span className="text-xs text-white w-4 text-center">{repeatCount}</span>
+                <span className="text-xs w-8 text-center text-primary-text">{playbackSpeed}x</span>
                 <button
-                  onClick={() => onRepeatCountChange(Math.min(10, repeatCount + 1))}
-                  className="w-5 h-5 flex items-center justify-center bg-base hover:bg-hover rounded-full text-white text-xs"
+                  onClick={() => onSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
+                  disabled={playbackSpeed >= 2}
+                  className={`w-5 h-5 flex items-center justify-center rounded-full text-xs bg-base text-primary-text ${playbackSpeed >= 2 ? 'opacity-50' : 'hover:opacity-80'}`}
                 >
                   +
                 </button>
               </div>
-            )}
-          </div>
-
-          {/* Speed Controls */}
-          <div className="flex items-center space-x-1">
-            <span className="text-xs font-medium text-white">Speed:</span>
-            <div className="flex items-center space-x-0.5">
-              <button
-                onClick={() => onSpeedChange(Math.max(0.25, Math.round((playbackSpeed - 0.25) * 100) / 100))}
-                disabled={playbackSpeed <= 0.25}
-                className={`w-5 h-5 flex items-center justify-center rounded-full text-xs text-white bg-base ${playbackSpeed <= 0.25 ? 'opacity-50' : 'hover:bg-hover'}`}
-              >
-                -
-              </button>
-              <span className="text-xs text-white w-8 text-center">{playbackSpeed}x</span>
-              <button
-                onClick={() => onSpeedChange(Math.min(2, Math.round((playbackSpeed + 0.25) * 100) / 100))}
-                disabled={playbackSpeed >= 2}
-                className={`w-5 h-5 flex items-center justify-center rounded-full text-xs text-white bg-base ${playbackSpeed >= 2 ? 'opacity-50' : 'hover:bg-hover'}`}
-              >
-                +
-              </button>
             </div>
-          </div>
 
-          {/* Font Size Controls */}
-          <div className="flex items-center space-x-1">
-            <span className="text-xs font-medium text-white">Font:</span>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => onFontSizeChange(Math.max(14, fontSize - 2))}
-                disabled={fontSize <= 14}
-                className={`w-5 h-5 flex items-center justify-center rounded-full text-xs text-white bg-base ${fontSize <= 14 ? 'opacity-50' : 'hover:bg-hover'}`}
-              >
-                A-
-              </button>
-              <span className="text-xs text-white w-6 text-center">{fontSize}px</span>
-              <button
-                onClick={() => onFontSizeChange(Math.min(32, fontSize + 2))}
-                disabled={fontSize >= 32}
-                className={`w-5 h-5 flex items-center justify-center rounded-full text-xs text-white bg-base ${fontSize >= 32 ? 'opacity-50' : 'hover:bg-hover'}`}
-              >
-                A+
-              </button>
+            {/* Font Size Controls */}
+            <div className="flex items-center space-x-1.5">
+              <span className="text-xs font-medium text-primary-text">Font:</span>
+              <div className="flex items-center space-x-1.5">
+                <button
+                  onClick={() => onFontSizeChange(Math.max(14, fontSize - 2))}
+                  disabled={fontSize <= 14}
+                  className={`w-5 h-5 flex items-center justify-center rounded-full text-xs bg-base text-primary-text ${fontSize <= 14 ? 'opacity-50' : 'hover:opacity-80'}`}
+                >
+                  A-
+                </button>
+                <span className="text-xs w-6 text-center text-primary-text">{fontSize}px</span>
+                <button
+                  onClick={() => onFontSizeChange(Math.min(32, fontSize + 2))}
+                  disabled={fontSize >= 32}
+                  className={`w-5 h-5 flex items-center justify-center rounded-full text-xs bg-base text-primary-text ${fontSize >= 32 ? 'opacity-50' : 'hover:opacity-80'}`}
+                >
+                  A+
+                </button>
+              </div>
             </div>
           </div>
         </div>

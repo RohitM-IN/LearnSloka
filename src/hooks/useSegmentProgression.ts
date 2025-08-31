@@ -99,14 +99,12 @@ export const useSegmentProgression = ({
           if (!globalThis.debounceSeekTimeout || Date.now() - globalThis.debounceSeekTimeout > 1000) {
             globalThis.debounceSeekTimeout = Date.now();
             console.log(`⚠️ Audio drifted outside segment bounds (${currentTime.toFixed(2)}s < ${start.toFixed(2)}s) - correcting...`);
-            setTimeout(() => {
-              setIsPlaying(false);
-              seekTo(start);
-              setIsPlaying(true);
-            }, 500);
+            setIsPlaying(false);
+            seekTo(start);
+            setIsPlaying(true);
           }
         }
-      }, 100);
+      }, 50);
     }
 
     return () => {
