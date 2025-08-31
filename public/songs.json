@@ -37,5 +37,18 @@
     ],
     "audioSrc": "/shreesukata/shreesukatam.mp3",
     "srtUrl": "/shreesukata/shreesukatam.srt"
+  },
+  {
+    "id": 4,
+    "title": "गीता अध्याय 12",
+    "slug": "geeta-adhaya-12",
+    "artist": "सुमेध पाठक",
+    "tags": [
+      "hindu",
+      "mantra",
+      "geeta"
+    ],
+    "audioSrc": "/geeta/geeta-adhaya-12.mp3",
+    "srtUrl": "/geeta/geeta-adhaya-12.srt"
   }
 ]
