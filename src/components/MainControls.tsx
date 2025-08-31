@@ -6,7 +6,6 @@ import type { MainControlsProps } from '../@types/player';
 
 export const MainControls: React.FC<MainControlsProps> = ({
   isPlaying,
-  currentIndex,
   audioTime,
   blocks,
   onRefresh,
