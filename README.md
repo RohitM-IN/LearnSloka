@@ -129,6 +129,7 @@ Have questions or facing issues? Check out our comprehensive [FAQ document](FAQ.
 - **Development setup** and contribution guidelines
 
 For quick technical reference:
+- **Check Audio encoding**: Use `ffprobe -hide_banner -i file.mp3`
 - **Audio encoding**: Use `ffmpeg -i input.mp3 -ar 48000 -ac 1 -b:a 64k output.mp3`
 - **SRT creation**: Use Subtitle Edit for precise synchronization
 - **Support**: Create an issue on GitHub for help
@@ -145,9 +146,10 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## 🙏 Acknowledgments
 
-- आचार्य श्रेयस कुह्रेकर for providing authentic Sanskrit pronunciations
-- The Sanskrit community for preserving these sacred texts
-- All contributors and users of this application
+- **आचार्य श्रेयस कुह्रेकर** for providing authentic Sanskrit pronunciations of रुद्रपाठ, पुरुष सूक्त, and श्रीसूक्तम्
+- **सुमेध पाठक** for the beautiful recitation of गीता अध्याय 12
+- The Sanskrit community for preserving these sacred texts through generations
+- All contributors and users of this application for keeping the tradition alive
 
 ---
 
