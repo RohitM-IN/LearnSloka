@@ -20,7 +20,7 @@ export const useSRTLoader = ({ srtUrl }: UseSRTLoaderProps) => {
       .then((srt) => {
         if (isMounted) {
           const doc: SRTDocument = parseSRT(srt);
-          console.log(`📜 SRT loaded successfully: ${doc.blocks.length} blocks from ${srtUrl}`);
+          console.log(`📜 SRT loaded successfully: ${doc.blocks.length} blocks from ${srtUrl}`,doc.blocks);
           setBlocks(doc.blocks);
           setIsLoading(false);
         }
