@@ -10,7 +10,8 @@
       "shiva"
     ],
     "audioSrc": "/rudra/rudra.mp3",
-    "srtUrl": "/rudra/rudra.srt"
+    "srtUrl": "/rudra/rudra.srt",
+    "duration": "31:22"
   },
   {
     "id": 2,
@@ -23,7 +24,8 @@
       "people"
     ],
     "audioSrc": "/purushasuktam/purushsukta.mp3",
-    "srtUrl": "/purushasuktam/purushsukta.srt"
+    "srtUrl": "/purushasuktam/purushsukta.srt",
+    "duration": "4:46"
   },
   {
     "id": 3,
@@ -36,11 +38,12 @@
       "laxmi"
     ],
     "audioSrc": "/shreesukata/shreesukatam.mp3",
-    "srtUrl": "/shreesukata/shreesukatam.srt"
+    "srtUrl": "/shreesukata/shreesukatam.srt",
+    "duration": "6:26"
   },
   {
     "id": 4,
-    "title": "गीता अध्याय 12",
+    "title": "गीता अध्याय १२",
     "slug": "geeta-adhaya-12",
     "artist": "सुमेध पाठक",
     "tags": [
@@ -49,7 +52,8 @@
       "geeta"
     ],
     "audioSrc": "/geeta/geeta-adhaya-12.mp3",
-    "srtUrl": "/geeta/geeta-adhaya-12.srt"
+    "srtUrl": "/geeta/geeta-adhaya-12.srt",
+    "duration": "4:59"
   },
   {
     "id": 5,
@@ -59,9 +63,10 @@
     "tags": [
       "hindu",
       "mantra",
-      "shiva"
+      "vishnu"
     ],
     "audioSrc": "/vishnusahasranaam/vishnu-sahasranama.mp3",
-    "srtUrl": "/vishnusahasranaam/vishnu-sahasranama.srt"
+    "srtUrl": "/vishnusahasranaam/vishnu-sahasranama.srt",
+    "duration": "27:43"
   }
 ]

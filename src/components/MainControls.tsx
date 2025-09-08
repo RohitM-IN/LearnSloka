@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaPause, FaPlay, FaRedo, FaStop } from "react-icons/fa";
+import { FaPause, FaPlay, FaRedo, FaStop, FaStepForward, FaStepBackward } from "react-icons/fa";
 import { VscDebugPause, VscDebugRestart, VscDebugStop, VscPlay } from 'react-icons/vsc';
 import type { MainControlsProps } from '../@types/player';
 
@@ -19,7 +19,10 @@ export const MainControls: React.FC<MainControlsProps> = ({
   onRepeatToggle,
   onRepeatCountChange,
   onSpeedChange,
-  onFontSizeChange
+  onFontSizeChange,
+  albumContext,
+  onSkipNext,
+  onSkipPrevious
 }) => {
   // Calculate total duration from blocks
   const totalDuration = blocks.length > 0 ? 
@@ -30,7 +33,7 @@ export const MainControls: React.FC<MainControlsProps> = ({
     <div className="bg-background p-2 select-none">
       {/* Mobile Layout */}
       <div className="md:hidden">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-center items-center">
           {/* Current Time */}
           <div className="flex items-center min-w-[50px]">
             {isPlaying && (
@@ -40,6 +43,16 @@ export const MainControls: React.FC<MainControlsProps> = ({
           
           {/* Control Buttons - Centered */}
           <div className="flex justify-center items-center space-x-2">
+            {/* Previous Song Button (Mobile) */}
+            {albumContext && onSkipPrevious && albumContext.currentTrackNumber > 1 && (
+              <button
+                onClick={onSkipPrevious}
+                className="p-2 rounded-full transition-colors bg-base hover:bg-accent hover:opacity-80 text-primary-text"
+              >
+                <FaStepBackward className="text-sm" />
+              </button>
+            )}
+            
             <button
               onClick={onRefresh}
               disabled={isPlaying}
@@ -60,6 +73,16 @@ export const MainControls: React.FC<MainControlsProps> = ({
             >
               <VscDebugStop/>
             </button>
+            
+            {/* Next Song Button (Mobile) */}
+            {albumContext && onSkipNext && albumContext.currentTrackNumber < albumContext.totalTracks && (
+              <button
+                onClick={onSkipNext}
+                className="p-2 rounded-full transition-colors bg-base hover:bg-accent hover:opacity-80 text-primary-text"
+              >
+                <FaStepForward className="text-sm" />
+              </button>
+            )}
           </div>
 
           {/* Total Duration */}
@@ -87,6 +110,16 @@ export const MainControls: React.FC<MainControlsProps> = ({
           
           {/* Control Buttons */}
           <div className="flex items-center space-x-3">
+            {/* Previous Song Button (Desktop) */}
+            {albumContext && onSkipPrevious && albumContext.currentTrackNumber > 1 && (
+              <button
+                onClick={onSkipPrevious}
+                className="p-1.5 rounded-full transition-colors bg-base hover:bg-accent hover:opacity-80 text-primary-text"
+              >
+                <FaStepBackward className="text-sm" />
+              </button>
+            )}
+            
             <button
               onClick={onRefresh}
               disabled={isPlaying}
@@ -107,6 +140,16 @@ export const MainControls: React.FC<MainControlsProps> = ({
             >
               <FaStop className="text-sm" />
             </button>
+            
+            {/* Next Song Button (Desktop) */}
+            {albumContext && onSkipNext && albumContext.currentTrackNumber < albumContext.totalTracks && (
+              <button
+                onClick={onSkipNext}
+                className="p-1.5 rounded-full transition-colors bg-base hover:bg-accent hover:opacity-80 text-primary-text"
+              >
+                <FaStepForward className="text-sm" />
+              </button>
+            )}
           </div>
 
           {/* Total Duration */}
