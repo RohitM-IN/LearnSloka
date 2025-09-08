@@ -47,10 +47,6 @@ function App() {
   }, []);
 
   // Auto-play handlers
-  const navigateToPlayerWithAutoPlay = useCallback((song: Song) => {
-    navigateToPlayer(song, true);
-  }, [navigateToPlayer]);
-
   const navigateToPlayerNormal = useCallback((song: Song) => {
     navigateToPlayer(song, false);
   }, [navigateToPlayer]);
