@@ -4,7 +4,6 @@ import { isSubtitleBlock, type SRTBlock, type SRTSubtitle } from "../utils/parse
 import type { PlayerProps } from "../@types/player";
 import { MainControls } from "./MainControls";
 import { MobileControls } from "./MobileControls";
-import { ContinueModal } from "./ContinueModel";
 import { SegmentList } from "./SegmentList";
 import {
   useAudioControl,
@@ -20,7 +19,9 @@ export const Player: React.FC<PlayerProps> = ({
   audioSrc,
   srtUrl,
   localStoragePrefix,
-  songTitle
+  songTitle,
+  autoPlay = false,
+  albumContext
 }) => {
   // Load SRT file
   const { blocks } = useSRTLoader({ srtUrl });
@@ -39,8 +40,6 @@ export const Player: React.FC<PlayerProps> = ({
   
   // UI state
   const [showControls, setShowControls] = useState<boolean>(false);
-  const [showContinueModal, setShowContinueModal] = useState<boolean>(false);
-  const [hasShownFirstTimePrompt, setHasShownFirstTimePrompt] = useState<boolean>(false);
   const [animationStartTime, setAnimationStartTime] = useState<number | null>(null);
   const [pausedProgress, setPausedProgress] = useState<number>(0);
 
@@ -73,7 +72,38 @@ export const Player: React.FC<PlayerProps> = ({
     if (savedSpeed) {
       setPlaybackSpeed(savedSpeed);
     }
-  }, [localStoragePrefix]);
+
+    // Auto-play functionality
+    if (autoPlay && blocks.length > 0) {
+      // Small delay to ensure audio is loaded
+      const autoPlayTimer = setTimeout(() => {
+        // For auto-play, always start from the beginning (first playable segment)
+        console.log(`🎵 Auto-playing from beginning (ignoring saved position)`);
+        positionPersistence.clearSavedPosition(); // Clear any saved position
+        
+        // Find the first subtitle block that has proper start/end times (actual chantable content)
+        const firstPlayableIndex = blocks.findIndex(block => 
+          isSubtitleBlock(block) && 
+          "start" in block && 
+          "end" in block && 
+          typeof block.start === "number" && 
+          typeof block.end === "number" &&
+          block.start >= 0 && 
+          block.end > block.start
+        );
+        
+        if (firstPlayableIndex >= 0) {
+          console.log(`🎯 Auto-playing from first playable segment at index ${firstPlayableIndex}`);
+          playSegment(firstPlayableIndex); // Use playSegment to seek AND play
+        } else {
+          console.log(`⚠️ No playable segments found, falling back to index 0`);
+          handlePlay(0);
+        }
+      }, 500);
+
+      return () => clearTimeout(autoPlayTimer);
+    }
+  }, [localStoragePrefix, autoPlay, blocks.length]);
 
   // Centralized segment playback logic
   const playSegment = (index: number, repeat?: number) => {
@@ -89,10 +119,8 @@ export const Player: React.FC<PlayerProps> = ({
     }
     audioControl.setPlaybackRate(playbackSpeed);
     
-    // Only play if not already playing
-    if (!isPlaying) {
-      audioControl.play();
-    }
+    // Always play when calling playSegment
+    audioControl.play();
 
     setCurrentIndex(index);
     setAudioTime(block.start);
@@ -120,7 +148,7 @@ export const Player: React.FC<PlayerProps> = ({
     },
     onIndexChange: setCurrentIndex,
     onRepeatChange: setCurrentRepeat,
-    onStop: handleStop,
+    onStop: handleSongEnd, // Use handleSongEnd instead of handleStop
     playSegment,
     clearSavedPosition: positionPersistence.clearSavedPosition,
     setIsPlaying
@@ -148,6 +176,33 @@ export const Player: React.FC<PlayerProps> = ({
     setPausedProgress(0);
   }
 
+  function handleSongEnd() {
+    console.log(`🎵 Song ended - checking for next song in album`);
+    
+    // If we're in album context and there's a next song, play it
+    if (albumContext && albumContext.onNextSong && albumContext.currentTrackNumber < albumContext.totalTracks) {
+      console.log(`➡️ Auto-playing next song in album (${albumContext.currentTrackNumber + 1}/${albumContext.totalTracks})`);
+      albumContext.onNextSong();
+    } else {
+      console.log(`🏁 Album finished or no album context - stopping playback`);
+      handleStop();
+    }
+  }
+
+  function handleSkipToNext() {
+    console.log(`⏭️ Skip to next song requested`);
+    if (albumContext && albumContext.onNextSong) {
+      albumContext.onNextSong();
+    }
+  }
+
+  function handleSkipToPrevious() {
+    console.log(`⏮️ Skip to previous song requested`);
+    if (albumContext && albumContext.onPreviousSong) {
+      albumContext.onPreviousSong();
+    }
+  }
+
   const handleFontSizeChange = (newSize: number) => {
     setFontSize(newSize);
     positionPersistence.saveFontSize(newSize);
@@ -160,13 +215,7 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   const handlePlay = (startIndex: number = 0) => {
-    // Check if this is the first time playing and there's a saved position
-    if (startIndex === 0 && positionPersistence.hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
-      setShowContinueModal(true);
-      setHasShownFirstTimePrompt(true);
-      return;
-    }
-
+    // For auto-play or when we want to skip the modal, just start playing
     setCurrentIndex(startIndex);
     setIsPlaying(true);
     setCurrentRepeat(0);
@@ -184,29 +233,6 @@ export const Player: React.FC<PlayerProps> = ({
     // Save current progress when pausing
     const currentProgress = getCurrentSegmentProgress();
     setPausedProgress(currentProgress);
-  };
-
-  const handleResume = () => {
-    setIsPlaying(true);
-    setAnimationStartTime(Date.now());
-  };
-
-  const handleContinue = () => {
-    setShowContinueModal(false);
-    const savedPosition = positionPersistence.getSavedPosition();
-    if (savedPosition) {
-      setCurrentIndex(savedPosition.index);
-      setIsPlaying(true);
-      setCurrentRepeat(0);
-    }
-  };
-
-  const handleStartFresh = () => {
-    setShowContinueModal(false);
-    positionPersistence.clearSavedPosition();
-    setCurrentIndex(0);
-    setIsPlaying(true);
-    setCurrentRepeat(0);
   };
 
   const handleSegmentClick = (index: number) => {
@@ -242,39 +268,56 @@ export const Player: React.FC<PlayerProps> = ({
   };
 
   const handlePlayButton = () => {
-    console.log(`🎮 Play button clicked (Playing: ${isPlaying}, HasSaved: ${positionPersistence.hasSavedPosition}, FirstTime: ${!hasShownFirstTimePrompt})`);
+    console.log(`🎮 Play button clicked (Playing: ${isPlaying}, HasSaved: ${positionPersistence.hasSavedPosition}, AutoPlay: ${autoPlay})`);
     
-    // Try to continue from saved position first
-    if (!isPlaying) {
-      handleResume();
+    // If currently playing, pause
+    if (isPlaying) {
+      console.log(`⏸️ Pausing current playback`);
+      handlePause();
+      return;
     }
-    if (positionPersistence.hasSavedPosition && !isPlaying) {
+
+    // If not playing, check for saved position and auto-continue
+    if (positionPersistence.hasSavedPosition && !autoPlay) {
       const savedPosition = positionPersistence.getSavedPosition();
       if (savedPosition) {
-        console.log(`📍 Resuming from saved position: segment ${savedPosition.index} at ${savedPosition.time.toFixed(2)}s`);
-        handlePlay(savedPosition.index);
+        console.log(`📍 Auto-resuming from saved position: segment ${savedPosition.index} at ${savedPosition.time.toFixed(2)}s`);
+        setCurrentIndex(savedPosition.index);
+        setIsPlaying(true);
+        setCurrentRepeat(0);
+        setAnimationStartTime(Date.now());
+        setPausedProgress(0);
         return;
       }
     }
 
-    // If no saved position or already shown prompt, start from first
-    if (positionPersistence.hasSavedPosition && !isPlaying && !hasShownFirstTimePrompt) {
-      console.log(`❓ Showing continue modal for saved position`);
-      setShowContinueModal(true);
-      setHasShownFirstTimePrompt(true);
-    }
-    else if (!positionPersistence.hasSavedPosition && !isPlaying) {
-      console.log(`🆕 Starting fresh playback from beginning`);
-      handlePlay(0);
-      setHasShownFirstTimePrompt(true);
-    } else {
-      console.log(`⏸️ Pausing current playback`);
-      handlePause();
-    }
+    // Default: start from beginning
+    console.log(`🆕 Starting fresh playback from beginning`);
+    handlePlay(0);
   };
 
   const handleRefreshButton = () => {
-    handlePlay(0);
+    console.log(`🔄 Refresh button clicked - finding first playable segment`);
+    
+    // Find the first subtitle block that has proper start/end times (actual chantable content)
+    const firstPlayableIndex = blocks.findIndex(block => 
+      isSubtitleBlock(block) && 
+      "start" in block && 
+      "end" in block && 
+      typeof block.start === "number" && 
+      typeof block.end === "number" &&
+      block.start >= 0 && 
+      block.end > block.start
+    );
+    
+    if (firstPlayableIndex >= 0) {
+      console.log(`🎯 Restarting from first playable segment at index ${firstPlayableIndex}`);
+      positionPersistence.clearSavedPosition(); // Clear saved position
+      playSegment(firstPlayableIndex); // Use playSegment to seek AND play
+    } else {
+      console.log(`⚠️ No playable segments found, falling back to index 0`);
+      handlePlay(0);
+    }
   };
 
   const getCurrentSegmentProgress = () => {
@@ -490,6 +533,9 @@ export const Player: React.FC<PlayerProps> = ({
           onRepeatCountChange={setRepeatCount}
           onSpeedChange={handleSpeedChange}
           onFontSizeChange={handleFontSizeChange}
+          albumContext={albumContext}
+          onSkipNext={handleSkipToNext}
+          onSkipPrevious={handleSkipToPrevious}
         />
       </div>
 
@@ -522,13 +568,6 @@ export const Player: React.FC<PlayerProps> = ({
           audioControl.setPlaybackRate(playbackSpeed);
           audioControl.setVolume(1.0);
         }}
-      />
-
-      {/* Continue Modal */}
-      <ContinueModal
-        showContinueModal={showContinueModal}
-        onContinue={handleContinue}
-        onStartFresh={handleStartFresh}
       />
     </div>
   );

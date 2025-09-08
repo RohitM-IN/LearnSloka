@@ -1,0 +1,66 @@
+[
+  {
+    "id": 1,
+    "title": "श्रावण मास",
+    "slug": "shravan-mas-album",
+    "artist": "आचार्य श्रेयस कुह्रेकर",
+    "description": "",
+    "image": "/images/albums/shravan-mas-album.jpg",
+    "tags": [
+      "shravan",
+      "rudra"
+    ],
+    "songs": [
+      {
+        "songId": 2,
+        "trackNumber": 1
+      },
+      {
+        "songId": 3,
+        "trackNumber": 2
+      },
+      {
+        "songId": 1,
+        "trackNumber": 3
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "सूक्त संग्रह",
+    "slug": "suktam-collection",
+    "artist": ["आचार्य श्रेयस कुह्रेकर"],
+    "description": "",
+    "image": "/images/albums/sukata.jpg",
+    "tags": [
+      "sukta"
+    ],
+    "songs": [
+      {
+        "songId": 2,
+        "trackNumber": 1
+      },
+      {
+        "songId": 3,
+        "trackNumber": 2
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "भगवद्गीता",
+    "slug": "bhagavad-gita",
+    "artist": "सुमेध पाठक",
+    "description": "",
+    "image": "/images/albums/gita.png",
+    "tags": [
+      "gita"
+    ],
+    "songs": [
+      {
+        "songId": 4,
+        "trackNumber": 1
+      }
+    ]
+  }
+]

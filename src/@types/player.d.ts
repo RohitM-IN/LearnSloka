@@ -3,6 +3,14 @@ export interface PlayerProps {
   srtUrl: string;
   localStoragePrefix: string;
   songTitle: string;
+  autoPlay?: boolean;
+  albumContext?: {
+    albumId: number;
+    currentTrackNumber: number;
+    totalTracks: number;
+    onNextSong?: () => void;
+    onPreviousSong?: () => void;
+  };
 }
 
 export interface ContinueModalProps {
@@ -28,6 +36,14 @@ export interface MainControlsProps {
   onRepeatCountChange: (count: number) => void;
   onSpeedChange: (speed: number) => void;
   onFontSizeChange: (size: number) => void;
+  albumContext?: {
+    currentTrackNumber: number;
+    totalTracks: number;
+    onNextSong?: () => void;
+    onPreviousSong?: () => void;
+  };
+  onSkipNext?: () => void;
+  onSkipPrevious?: () => void;
 }
 
 export interface DesktopControlsProps {
