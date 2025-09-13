@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+.cursor
+.superdesign
 
 # Editor directories and files
 .vscode/*
@@ -23,3 +25,6 @@ dist-ssr
 *.sln
 *.sw?
 *.tmp
+CLAUDE.md
+.gitignore
+.windsurfrules
