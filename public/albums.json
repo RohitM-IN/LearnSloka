@@ -50,16 +50,22 @@
     "id": 3,
     "title": "भगवद्गीता",
     "slug": "bhagavad-gita",
-    "artist": "सुमेध पाठक",
+    "artist": ["आचार्य श्रेयस कुह्रेकर", "सुमेध पाठक"],
     "description": "",
     "image": "/images/albums/gita.png",
     "tags": [
-      "gita"
+      "gita",
+      "philosophy",
+      "spiritual"
     ],
     "songs": [
       {
-        "songId": 4,
+        "songId": 6,
         "trackNumber": 1
+      },
+      {
+        "songId": 4,
+        "trackNumber": 2
       }
     ]
   }
