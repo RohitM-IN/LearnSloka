@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface PlayerProps {
   audioSrc: string;
   srtUrl: string;
   localStoragePrefix: string;
   songTitle: string;
+  artist?: string;
   autoPlay?: boolean;
   albumContext?: {
     albumId: number;

@@ -82,5 +82,19 @@
     "audioSrc": "/geeta/geeta-adhaya-1.mp3",
     "srtUrl": "/geeta/geeta-adhaya-1.srt",
     "duration": "9:22"
+  },
+  {
+    "id": 7,
+    "title": "शिव मानस पूजा",
+    "slug": "shiv-manas-pooja",
+    "artist": "आचार्य श्रेयस कुह्रेकर",
+    "tags": [
+      "hindu",
+      "mantra",
+      "shiva"
+    ],
+    "audioSrc": "/stotra/SHIV_MANAS_POOJA.mp3",
+    "srtUrl": "/stotra/SHIV_MANAS_POOJA.srt",
+    "duration": "3:18"
   }
 ]
