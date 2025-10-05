@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { FaPause, FaPlay, FaRedo, FaStop, FaStepForward, FaStepBackward } from "react-icons/fa";
 import { VscDebugPause, VscDebugRestart, VscDebugStop, VscPlay } from 'react-icons/vsc';

@@ -303,6 +303,7 @@ function App() {
                 onNextSong: navigateToNextSongInAlbum,
                 onPreviousSong: navigateToPreviousSongInAlbum
               } : undefined}
+              artist={Array.isArray(viewState.currentSong.artist) ? viewState.currentSong.artist.join(', ') : viewState.currentSong.artist}
             />
           </article>
         )}

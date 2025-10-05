@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useMemo, useEffect } from "react";
 import { isSubtitleBlock, type SRTBlock, type SRTSubtitle } from "../utils/parser";
@@ -13,15 +14,17 @@ import {
   useAutoScroll,
   useSegmentProgression
 } from "../hooks";
-
+import { CapacitorMusicControls } from "capacitor-music-controls-plugin";
+import type { PluginListenerHandle } from '@capacitor/core';
 
 export const Player: React.FC<PlayerProps> = ({
   audioSrc,
   srtUrl,
   localStoragePrefix,
   songTitle,
-  autoPlay = false,
-  albumContext
+  autoPlay: _autoplay = false,
+  albumContext,
+  artist
 }) => {
   // Load SRT file
   const { blocks } = useSRTLoader({ srtUrl });
@@ -31,7 +34,8 @@ export const Player: React.FC<PlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState<number>(0);
   const [currentRepeat, setCurrentRepeat] = useState<number>(0);
-  
+  const [musicControlsKey, setMusicControlsKey] = useState(0);
+
   // Settings state
   const [fontSize, setFontSize] = useState<number>(18);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
@@ -42,6 +46,7 @@ export const Player: React.FC<PlayerProps> = ({
   const [showControls, setShowControls] = useState<boolean>(false);
   const [animationStartTime, setAnimationStartTime] = useState<number | null>(null);
   const [pausedProgress, setPausedProgress] = useState<number>(0);
+  const [autoPlay, setAutoPlay] = useState<boolean>(_autoplay);
 
   // Custom hooks
   const positionPersistence = usePositionPersistence({ localStoragePrefix });
@@ -193,6 +198,7 @@ export const Player: React.FC<PlayerProps> = ({
     console.log(`⏭️ Skip to next song requested`);
     if (albumContext && albumContext.onNextSong) {
       albumContext.onNextSong();
+      setMusicControlsKey((prevKey) => prevKey + 1); // Trigger useEffect by updating state
     }
   }
 
@@ -200,6 +206,7 @@ export const Player: React.FC<PlayerProps> = ({
     console.log(`⏮️ Skip to previous song requested`);
     if (albumContext && albumContext.onPreviousSong) {
       albumContext.onPreviousSong();
+      setMusicControlsKey((prevKey) => prevKey + 1); // Trigger useEffect by updating state
     }
   }
 
@@ -230,6 +237,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handlePause = () => {
     setIsPlaying(false);
+    setAutoPlay(false);
     // Save current progress when pausing
     const currentProgress = getCurrentSegmentProgress();
     setPausedProgress(currentProgress);
@@ -237,6 +245,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   const handleSegmentClick = (index: number) => {
     setShowControls(false);
+    setAutoPlay(false);
     // Only call playSegment if currentTime is outside the segment time
     const block = blocks[index] as SRTSubtitle;
     const currentSeek = audioControl.getCurrentTime();
@@ -510,6 +519,100 @@ export const Player: React.FC<PlayerProps> = ({
     
     return [/*songTitleBlock,*/ ...processedBlocks.filter(block => block !== null)];
   }, [blocks, currentIndex, fontSize, isPlaying, segmentRepeat, enableRepeat, localStoragePrefix, audioTime, currentRepeat, repeatCount, animationStartTime, pausedProgress, songTitle]);
+
+  // Music Controls Integration
+  useEffect(() => {
+    if (!CapacitorMusicControls) {
+      console.warn("CapacitorMusicControls plugin is not available.");
+      return;
+    }
+
+    // Create music controls when the component mounts
+    CapacitorMusicControls.create({
+      track: songTitle || "Unknown Track",
+      artist: artist || "Unknown Artist",
+      cover: "",
+      notificationIcon: "",
+      isPlaying: isPlaying,
+      dismissable: false,
+      hasPrev: albumContext?.currentTrackNumber !== undefined && albumContext.currentTrackNumber > 1, // Enable previous if not the first track
+      hasNext: albumContext?.currentTrackNumber !== undefined && albumContext?.totalTracks !== undefined && albumContext.currentTrackNumber < albumContext.totalTracks, // Enable next if not the last track
+      hasClose: true, // Always allow closing the controls
+      duration: audioControl.getCurrentTime() || 0,
+    })
+    .catch((e) => {
+      console.log(e);
+    });
+
+    // Subscribe to music control events
+    let eventListenerHandle: PluginListenerHandle | undefined;
+    document.addEventListener("controlsNotification", (action: any) => {
+      switch (action.message) {
+        case "music-controls-play":
+          console.log("▶️ Play button pressed");
+          handlePlayButton();
+          break;
+        case "music-controls-pause":
+          console.log("⏸️ Pause button pressed");
+          handlePause();
+          break;
+        case "music-controls-next":
+          console.log("⏭️ Next button pressed");
+          handleSkipToNext();
+          break;
+        case "music-controls-previous":
+          console.log("⏮️ Previous button pressed");
+          handleSkipToPrevious();
+          break;
+        case "music-controls-destroy":
+          console.log("🛑 Controls destroyed");
+          handleStop();
+          break;
+        default:
+          console.log(`Unhandled action: ${action.message}`);
+      }
+    });
+
+    return () => {
+      // Destroy music controls and remove event listener when the component unmounts
+      CapacitorMusicControls.destroy();
+      if (eventListenerHandle) {
+        eventListenerHandle.remove();
+      }
+    };
+  }, [isPlaying, songTitle, artist, albumContext, musicControlsKey,window.history]);
+
+  useEffect(() => {
+    if (!CapacitorMusicControls) return;
+
+    // Update playback state when isPlaying changes
+    CapacitorMusicControls.updateIsPlaying({ isPlaying });
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (!CapacitorMusicControls || !audioControl.audioRef.current) return;
+    
+    // Update duration when audio source or metadata changes
+    CapacitorMusicControls.updateElapsed({
+      isPlaying,
+      elapsed: audioControl.getCurrentTime(),
+    });
+  }
+  , [audioSrc, audioControl.audioRef.current?.duration]);
+
+  useEffect(() => {
+    if (!CapacitorMusicControls || !audioControl.audioRef.current || !isPlaying) return;
+
+    const interval = setInterval(() => {
+      CapacitorMusicControls.updateElapsed({
+        isPlaying,
+        elapsed: audioControl.getCurrentTime(),
+      });
+    }, 1000); // Run every second
+
+    return () => clearInterval(interval);
+  }, [audioSrc, audioControl.audioRef.current?.duration, isPlaying]);
+
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-background text-primary-text">
