@@ -68,5 +68,23 @@
         "trackNumber": 2
       }
     ]
+  },
+  {
+    "id": 4,
+    "title": "स्तोत्र संग्रह",
+    "slug": "stotra-collection",
+    "artist": "आचार्य श्रेयस कुह्रेकर",
+    "description": "",
+    "image": "/images/albums/stotra.jpg",
+    "tags": [
+      "stotra",
+      "shiv"
+    ],
+    "songs": [
+      {
+        "songId": 7,
+        "trackNumber": 1
+      }
+    ]
   }
 ]
