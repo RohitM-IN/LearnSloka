@@ -199,6 +199,7 @@ export const Player: React.FC<PlayerProps> = ({
     if (albumContext && albumContext.onNextSong) {
       albumContext.onNextSong();
       setMusicControlsKey((prevKey) => prevKey + 1); // Trigger useEffect by updating state
+      setAutoPlay(true);
     }
   }
 
@@ -207,6 +208,7 @@ export const Player: React.FC<PlayerProps> = ({
     if (albumContext && albumContext.onPreviousSong) {
       albumContext.onPreviousSong();
       setMusicControlsKey((prevKey) => prevKey + 1); // Trigger useEffect by updating state
+      setAutoPlay(true);
     }
   }
 
